@@ -1,23 +1,31 @@
-import {
-  Body,
-  Controller,
-  Post
-} from '@nestjs/common';
-
+import { Controller, Post, Body, BadRequestException } from '@nestjs/common';
 import { CompilerService } from './compiler.service';
-import { AnalyzeCodeDto } from './dto/analyze-code.dto';
+
+interface CodeDto {
+  code: string;
+}
 
 @Controller('compiler')
 export class CompilerController {
+  constructor(private readonly compilerService: CompilerService) {}
 
-  constructor(
-    private readonly compilerService: CompilerService
-  ) {}
-
+  /** POST /compiler/tokenize  →  análisis léxico */
   @Post('tokenize')
-  tokenize(
-    @Body() dto: AnalyzeCodeDto
-  ) {
-    return this.compilerService.tokenize(dto.source);
+  tokenize(@Body() body: CodeDto) {
+    if (!body?.code?.trim()) {
+      throw new BadRequestException('El campo "code" es requerido');
+    }
+    const tokens = this.compilerService.tokenize(body.code);
+    return { tokens };
+  }
+
+  /** POST /compiler/parse  →  análisis sintáctico */
+  @Post('parse')
+  parse(@Body() body: CodeDto) {
+    if (!body?.code?.trim()) {
+      throw new BadRequestException('El campo "code" es requerido');
+    }
+    const { cst, errors } = this.compilerService.parse(body.code);
+    return { cst, errors };
   }
 }
