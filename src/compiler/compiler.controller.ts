@@ -28,4 +28,14 @@ export class CompilerController {
     const { cst, errors } = this.compilerService.parse(body.code);
     return { cst, errors };
   }
+
+  /** POST /compiler/analyze  →  análisis semántico */
+  @Post('analyze')
+  analyze(@Body() body: CodeDto) {
+    if (!body?.code?.trim()) {
+      throw new BadRequestException('El campo "code" es requerido');
+    }
+    const { cst, syntaxErrors, semantic } = this.compilerService.analyze(body.code);
+    return { cst, syntaxErrors, semantic };
+  }
 }

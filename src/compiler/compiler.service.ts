@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { lexer } from './lexer';
 import { CParser, CSTNode, SyntaxError, MooToken } from './c.parser';
+import { SemanticAnalyzer, SemanticResult } from './semantic';
 
 @Injectable()
 export class CompilerService {
@@ -17,9 +18,8 @@ export class CompilerService {
     }));
   }
 
-  /** Análisis sintáctico — nuevo */
+  /** Análisis sintáctico */
   parse(source: string): { cst: CSTNode; errors: SyntaxError[] } {
-    // Reutiliza el mismo lexer moo
     lexer.reset(source);
     const rawTokens: MooToken[] = [...lexer].map(t => ({
       type:  t.type  ?? 'unknown',
@@ -32,5 +32,13 @@ export class CompilerService {
     const cst = parser.parse();
 
     return { cst, errors: parser.errors };
+  }
+
+  /** Análisis semántico — nuevo */
+  analyze(source: string): { cst: CSTNode; syntaxErrors: SyntaxError[]; semantic: SemanticResult } {
+    const { cst, errors: syntaxErrors } = this.parse(source);
+    const analyzer = new SemanticAnalyzer();
+    const semantic = analyzer.analyze(cst);
+    return { cst, syntaxErrors, semantic };
   }
 }
