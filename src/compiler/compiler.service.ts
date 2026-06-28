@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { lexer } from './lexer';
 import { CParser, CSTNode, SyntaxError, MooToken } from './c.parser';
 import { SemanticAnalyzer, SemanticResult } from './semantic';
+import { CTranslator, TargetLanguage, TranslateResult } from './translator';
 
 @Injectable()
 export class CompilerService {
@@ -40,5 +41,27 @@ export class CompilerService {
     const analyzer = new SemanticAnalyzer();
     const semantic = analyzer.analyze(cst);
     return { cst, syntaxErrors, semantic };
+  }
+
+  /** Traducción de C a otro lenguaje */
+  translate(source: string, target: TargetLanguage): TranslateResult & { syntaxErrors: SyntaxError[] } {
+    const validTargets: TargetLanguage[] = ['javascript', 'cpp'];
+    if (!validTargets.includes(target)) {
+      throw new BadRequestException(`Lenguaje destino inválido. Use: ${validTargets.join(', ')}`);
+    }
+
+    const { cst, errors: syntaxErrors } = this.parse(source);
+    if (syntaxErrors.length > 0) {
+      return {
+        code: '',
+        target,
+        warnings: ['No se puede traducir código con errores sintácticos'],
+        syntaxErrors,
+      };
+    }
+
+    const translator = new CTranslator();
+    const result = translator.translate(cst, target);
+    return { ...result, syntaxErrors };
   }
 }

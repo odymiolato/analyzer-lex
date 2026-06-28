@@ -5,6 +5,11 @@ interface CodeDto {
   code: string;
 }
 
+interface TranslateDto {
+  code: string;
+  target: 'javascript' | 'cpp';
+}
+
 @Controller('compiler')
 export class CompilerController {
   constructor(private readonly compilerService: CompilerService) {}
@@ -37,5 +42,17 @@ export class CompilerController {
     }
     const { cst, syntaxErrors, semantic } = this.compilerService.analyze(body.code);
     return { cst, syntaxErrors, semantic };
+  }
+
+  /** POST /compiler/translate  →  traducción de C a JS o C++ */
+  @Post('translate')
+  translate(@Body() body: TranslateDto) {
+    if (!body?.code?.trim()) {
+      throw new BadRequestException('El campo "code" es requerido');
+    }
+    if (!body?.target) {
+      throw new BadRequestException('El campo "target" es requerido (javascript | cpp)');
+    }
+    return this.compilerService.translate(body.code, body.target);
   }
 }
