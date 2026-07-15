@@ -55,4 +55,22 @@ export class CompilerController {
     }
     return this.compilerService.translate(body.code, body.target);
   }
+
+  /** POST /compiler/codegen  →  generación de código destino (TAC) */
+  @Post('codegen')
+  codegen(@Body() body: CodeDto) {
+    if (!body?.code?.trim()) {
+      throw new BadRequestException('El campo "code" es requerido');
+    }
+    return this.compilerService.generateTarget(body.code);
+  }
+
+  /** POST /compiler/optimize  →  optimización del código destino */
+  @Post('optimize')
+  optimize(@Body() body: CodeDto) {
+    if (!body?.code?.trim()) {
+      throw new BadRequestException('El campo "code" es requerido');
+    }
+    return this.compilerService.optimize(body.code);
+  }
 }
