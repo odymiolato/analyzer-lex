@@ -6,8 +6,16 @@ import { CSTNode } from './c.parser';
 // ─── Tipos del sistema de tipos C ────────────────────────────────────────────
 
 export type CType =
-  | 'int' | 'float' | 'double' | 'char' | 'void' | 'bool'
-  | 'long' | 'short' | 'unsigned' | 'signed'
+  | 'int'
+  | 'float'
+  | 'double'
+  | 'char'
+  | 'void'
+  | 'bool'
+  | 'long'
+  | 'short'
+  | 'unsigned'
+  | 'signed'
   | { kind: 'pointer'; base: CType }
   | { kind: 'array'; base: CType; size?: number }
   | { kind: 'function'; returnType: CType; params: CType[] }
@@ -16,14 +24,24 @@ export type CType =
 function typeToString(t: CType): string {
   if (typeof t === 'string') return t;
   if (t.kind === 'pointer') return `${typeToString(t.base)}*`;
-  if (t.kind === 'array')   return `${typeToString(t.base)}[]`;
+  if (t.kind === 'array') return `${typeToString(t.base)}[]`;
   if (t.kind === 'function')
     return `${typeToString(t.returnType)}(${t.params.map(typeToString).join(', ')})`;
   return 'unknown';
 }
 
 function isNumeric(t: CType): boolean {
-  return ['int','float','double','long','short','unsigned','signed','char','bool'].includes(t as string);
+  return [
+    'int',
+    'float',
+    'double',
+    'long',
+    'short',
+    'unsigned',
+    'signed',
+    'char',
+    'bool',
+  ].includes(t as string);
 }
 
 function typesCompatible(a: CType, b: CType): boolean {
@@ -31,12 +49,16 @@ function typesCompatible(a: CType, b: CType): boolean {
   if (a === b) return true;
   if (isNumeric(a) && isNumeric(b)) return true;
   if (typeof a === 'object' && typeof b === 'object' && a.kind === b.kind) {
-    if (a.kind === 'pointer' && b.kind === 'pointer') return typesCompatible(a.base, b.base);
-    if (a.kind === 'array'   && b.kind === 'array')   return typesCompatible(a.base, b.base);
+    if (a.kind === 'pointer' && b.kind === 'pointer')
+      return typesCompatible(a.base, b.base);
+    if (a.kind === 'array' && b.kind === 'array')
+      return typesCompatible(a.base, b.base);
   }
   // void* compatible con cualquier puntero
-  if (typeof a === 'object' && a.kind === 'pointer' && a.base === 'void') return true;
-  if (typeof b === 'object' && b.kind === 'pointer' && b.base === 'void') return true;
+  if (typeof a === 'object' && a.kind === 'pointer' && a.base === 'void')
+    return true;
+  if (typeof b === 'object' && b.kind === 'pointer' && b.base === 'void')
+    return true;
   return false;
 }
 
@@ -67,13 +89,17 @@ export interface SemanticError {
 class SymbolTable {
   private scopes: Map<string, Symbol>[] = [];
 
-  enterScope() { this.scopes.push(new Map()); }
+  enterScope() {
+    this.scopes.push(new Map());
+  }
 
   exitScope(): Map<string, Symbol> {
     return this.scopes.pop()!;
   }
 
-  get level() { return this.scopes.length; }
+  get level() {
+    return this.scopes.length;
+  }
 
   define(sym: Symbol): boolean {
     const current = this.scopes[this.scopes.length - 1];
@@ -132,7 +158,11 @@ export class SemanticAnalyzer {
     // Detectar símbolos no usados en ámbito global
     for (const sym of globalScope.values()) {
       if (sym.kind === 'variable' && !sym.used) {
-        this.warn(`Variable global '${sym.name}' declarada pero nunca usada`, sym.line, sym.column);
+        this.warn(
+          `Variable global '${sym.name}' declarada pero nunca usada`,
+          sym.line,
+          sym.column,
+        );
       }
     }
 
@@ -151,8 +181,8 @@ export class SemanticAnalyzer {
     }
 
     return {
-      errors: this.errors.filter(e => e.severity === 'error'),
-      warnings: this.errors.filter(e => e.severity === 'warning'),
+      errors: this.errors.filter((e) => e.severity === 'error'),
+      warnings: this.errors.filter((e) => e.severity === 'warning'),
       symbolTable: allSymbols,
     };
   }
@@ -160,28 +190,113 @@ export class SemanticAnalyzer {
   // ── Registro de funciones built-in ──────────────────────────────────────────
   private registerBuiltins() {
     const builtins: { name: string; type: CType }[] = [
-      { name: 'printf',  type: { kind: 'function', returnType: 'int', params: [] } },
-      { name: 'scanf',   type: { kind: 'function', returnType: 'int', params: [] } },
-      { name: 'malloc',  type: { kind: 'function', returnType: { kind: 'pointer', base: 'void' }, params: ['int'] } },
-      { name: 'free',    type: { kind: 'function', returnType: 'void', params: [{ kind: 'pointer', base: 'void' }] } },
-      { name: 'strlen',  type: { kind: 'function', returnType: 'int', params: [{ kind: 'pointer', base: 'char' }] } },
-      { name: 'strcpy',  type: { kind: 'function', returnType: { kind: 'pointer', base: 'char' }, params: [] } },
-      { name: 'strcmp',  type: { kind: 'function', returnType: 'int', params: [] } },
-      { name: 'strcat',  type: { kind: 'function', returnType: { kind: 'pointer', base: 'char' }, params: [] } },
-      { name: 'puts',    type: { kind: 'function', returnType: 'int', params: [] } },
-      { name: 'gets',    type: { kind: 'function', returnType: { kind: 'pointer', base: 'char' }, params: [] } },
-      { name: 'atoi',    type: { kind: 'function', returnType: 'int', params: [] } },
-      { name: 'atof',    type: { kind: 'function', returnType: 'double', params: [] } },
-      { name: 'exit',    type: { kind: 'function', returnType: 'void', params: ['int'] } },
-      { name: 'abs',     type: { kind: 'function', returnType: 'int', params: ['int'] } },
-      { name: 'sqrt',    type: { kind: 'function', returnType: 'double', params: ['double'] } },
-      { name: 'pow',     type: { kind: 'function', returnType: 'double', params: ['double', 'double'] } },
-      { name: 'NULL',    type: { kind: 'pointer', base: 'void' } },
-      { name: 'true',    type: 'bool' },
-      { name: 'false',   type: 'bool' },
+      {
+        name: 'printf',
+        type: { kind: 'function', returnType: 'int', params: [] },
+      },
+      {
+        name: 'scanf',
+        type: { kind: 'function', returnType: 'int', params: [] },
+      },
+      {
+        name: 'malloc',
+        type: {
+          kind: 'function',
+          returnType: { kind: 'pointer', base: 'void' },
+          params: ['int'],
+        },
+      },
+      {
+        name: 'free',
+        type: {
+          kind: 'function',
+          returnType: 'void',
+          params: [{ kind: 'pointer', base: 'void' }],
+        },
+      },
+      {
+        name: 'strlen',
+        type: {
+          kind: 'function',
+          returnType: 'int',
+          params: [{ kind: 'pointer', base: 'char' }],
+        },
+      },
+      {
+        name: 'strcpy',
+        type: {
+          kind: 'function',
+          returnType: { kind: 'pointer', base: 'char' },
+          params: [],
+        },
+      },
+      {
+        name: 'strcmp',
+        type: { kind: 'function', returnType: 'int', params: [] },
+      },
+      {
+        name: 'strcat',
+        type: {
+          kind: 'function',
+          returnType: { kind: 'pointer', base: 'char' },
+          params: [],
+        },
+      },
+      {
+        name: 'puts',
+        type: { kind: 'function', returnType: 'int', params: [] },
+      },
+      {
+        name: 'gets',
+        type: {
+          kind: 'function',
+          returnType: { kind: 'pointer', base: 'char' },
+          params: [],
+        },
+      },
+      {
+        name: 'atoi',
+        type: { kind: 'function', returnType: 'int', params: [] },
+      },
+      {
+        name: 'atof',
+        type: { kind: 'function', returnType: 'double', params: [] },
+      },
+      {
+        name: 'exit',
+        type: { kind: 'function', returnType: 'void', params: ['int'] },
+      },
+      {
+        name: 'abs',
+        type: { kind: 'function', returnType: 'int', params: ['int'] },
+      },
+      {
+        name: 'sqrt',
+        type: { kind: 'function', returnType: 'double', params: ['double'] },
+      },
+      {
+        name: 'pow',
+        type: {
+          kind: 'function',
+          returnType: 'double',
+          params: ['double', 'double'],
+        },
+      },
+      { name: 'NULL', type: { kind: 'pointer', base: 'void' } },
+      { name: 'true', type: 'bool' },
+      { name: 'false', type: 'bool' },
     ];
     for (const b of builtins) {
-      this.table.define({ name: b.name, type: b.type, kind: 'variable', scopeLevel: 0, line: 0, column: 0, used: true, initialized: true });
+      this.table.define({
+        name: b.name,
+        type: b.type,
+        kind: 'variable',
+        scopeLevel: 0,
+        line: 0,
+        column: 0,
+        used: true,
+        initialized: true,
+      });
     }
   }
 
@@ -197,38 +312,70 @@ export class SemanticAnalyzer {
   // ── Dispatcher ───────────────────────────────────────────────────────────────
   private visitNode(node: CSTNode): CType {
     switch (node.name) {
-      case 'program':             return this.visitChildren(node);
-      case 'block':               return this.visitBlock(node);
-      case 'variableDeclaration': return this.visitVarDecl(node);
-      case 'functionDefinition':  return this.visitFuncDef(node);
-      case 'ifStatement':         return this.visitIf(node);
-      case 'whileStatement':      return this.visitWhile(node);
-      case 'doWhileStatement':    return this.visitDoWhile(node);
-      case 'forStatement':        return this.visitFor(node);
-      case 'returnStatement':     return this.visitReturn(node);
-      case 'switchStatement':     return this.visitSwitch(node);
-      case 'caseClause':          return this.visitCaseClause(node);
-      case 'defaultClause':       return this.visitChildren(node);
-      case 'expressionStatement': return this.visitChildren(node);
-      case 'breakStatement':      return this.visitBreak(node);
-      case 'continueStatement':   return this.visitContinue(node);
-      case 'assignment':          return this.visitAssignment(node);
-      case 'binaryExpr':          return this.visitBinaryExpr(node);
-      case 'unaryExpr':           return this.visitUnaryExpr(node);
-      case 'postfixExpr':         return this.visitPostfix(node);
-      case 'ternaryExpr':         return this.visitTernary(node);
-      case 'callExpr':            return this.visitCallExpr(node);
-      case 'arrayAccess':         return this.visitArrayAccess(node);
-      case 'memberAccess':        return 'unknown'; // struct no implementado aún
-      case 'castExpr':            return this.visitCast(node);
-      case 'sizeofExpr':          return 'int';
-      case 'groupedExpr':         return node.children ? this.visitNode(node.children[0]) : 'unknown';
-      case 'identifier':          return this.visitIdentifier(node);
-      case 'numberLiteral':       return this.inferNumberType(node.image ?? '');
-      case 'stringLiteral':       return { kind: 'pointer', base: 'char' };
-      case 'charLiteral':         return 'char';
-      case 'booleanLiteral':      return 'bool';
-      default:                    return this.visitChildren(node);
+      case 'program':
+        return this.visitChildren(node);
+      case 'block':
+        return this.visitBlock(node);
+      case 'variableDeclaration':
+        return this.visitVarDecl(node);
+      case 'functionDefinition':
+        return this.visitFuncDef(node);
+      case 'ifStatement':
+        return this.visitIf(node);
+      case 'whileStatement':
+        return this.visitWhile(node);
+      case 'doWhileStatement':
+        return this.visitDoWhile(node);
+      case 'forStatement':
+        return this.visitFor(node);
+      case 'returnStatement':
+        return this.visitReturn(node);
+      case 'switchStatement':
+        return this.visitSwitch(node);
+      case 'caseClause':
+        return this.visitCaseClause(node);
+      case 'defaultClause':
+        return this.visitChildren(node);
+      case 'expressionStatement':
+        return this.visitChildren(node);
+      case 'breakStatement':
+        return this.visitBreak(node);
+      case 'continueStatement':
+        return this.visitContinue(node);
+      case 'assignment':
+        return this.visitAssignment(node);
+      case 'binaryExpr':
+        return this.visitBinaryExpr(node);
+      case 'unaryExpr':
+        return this.visitUnaryExpr(node);
+      case 'postfixExpr':
+        return this.visitPostfix(node);
+      case 'ternaryExpr':
+        return this.visitTernary(node);
+      case 'callExpr':
+        return this.visitCallExpr(node);
+      case 'arrayAccess':
+        return this.visitArrayAccess(node);
+      case 'memberAccess':
+        return 'unknown'; // struct no implementado aún
+      case 'castExpr':
+        return this.visitCast(node);
+      case 'sizeofExpr':
+        return 'int';
+      case 'groupedExpr':
+        return node.children ? this.visitNode(node.children[0]) : 'unknown';
+      case 'identifier':
+        return this.visitIdentifier(node);
+      case 'numberLiteral':
+        return this.inferNumberType(node.image ?? '');
+      case 'stringLiteral':
+        return { kind: 'pointer', base: 'char' };
+      case 'charLiteral':
+        return 'char';
+      case 'booleanLiteral':
+        return 'bool';
+      default:
+        return this.visitChildren(node);
     }
   }
 
@@ -249,7 +396,11 @@ export class SemanticAnalyzer {
     // Variables locales no usadas
     for (const sym of scope.values()) {
       if ((sym.kind === 'variable' || sym.kind === 'parameter') && !sym.used) {
-        this.warn(`Variable '${sym.name}' declarada pero nunca usada`, sym.line, sym.column);
+        this.warn(
+          `Variable '${sym.name}' declarada pero nunca usada`,
+          sym.line,
+          sym.column,
+        );
       }
     }
     return 'void';
@@ -258,7 +409,7 @@ export class SemanticAnalyzer {
   // ── Declaración de variable ──────────────────────────────────────────────────
   private visitVarDecl(node: CSTNode): CType {
     const children = node.children ?? [];
-    const typeNode = children.find(c => c.name === 'typeSpecifier');
+    const typeNode = children.find((c) => c.name === 'typeSpecifier');
     if (!typeNode) return 'void';
 
     const baseType = this.extractType(typeNode);
@@ -266,11 +417,14 @@ export class SemanticAnalyzer {
 
     while (i < children.length) {
       const child = children[i];
-      if (child.name !== 'identifier') { i++; continue; }
+      if (child.name !== 'identifier') {
+        i++;
+        continue;
+      }
 
       const name = child.image ?? '';
       const line = this.getLine(child);
-      const col  = this.getCol(child);
+      const col = this.getCol(child);
 
       // Buscar si le sigue un '=' (inicialización)
       let initialized = false;
@@ -289,18 +443,28 @@ export class SemanticAnalyzer {
       if (initialized && !typesCompatible(baseType, initType)) {
         this.error(
           `Incompatibilidad de tipos: no se puede asignar '${typeToString(initType)}' a '${typeToString(baseType)}'`,
-          line, col,
+          line,
+          col,
         );
       }
 
       const ok = this.table.define({
-        name, type: baseType, kind: 'variable',
-        scopeLevel: this.table.level, line, column: col,
-        used: false, initialized,
+        name,
+        type: baseType,
+        kind: 'variable',
+        scopeLevel: this.table.level,
+        line,
+        column: col,
+        used: false,
+        initialized,
       });
 
       if (!ok) {
-        this.error(`Variable '${name}' ya fue declarada en este ámbito`, line, col);
+        this.error(
+          `Variable '${name}' ya fue declarada en este ámbito`,
+          line,
+          col,
+        );
       }
     }
     return 'void';
@@ -309,36 +473,51 @@ export class SemanticAnalyzer {
   // ── Definición de función ────────────────────────────────────────────────────
   private visitFuncDef(node: CSTNode): CType {
     const children = node.children ?? [];
-    const typeNode = children.find(c => c.name === 'typeSpecifier');
-    const idNode   = children.find(c => c.name === 'identifier');
-    const paramListNode = children.find(c => c.name === 'paramList');
-    const blockNode     = children.find(c => c.name === 'block');
+    const typeNode = children.find((c) => c.name === 'typeSpecifier');
+    const idNode = children.find((c) => c.name === 'identifier');
+    const paramListNode = children.find((c) => c.name === 'paramList');
+    const blockNode = children.find((c) => c.name === 'block');
 
     if (!typeNode || !idNode) return 'void';
 
     const returnType = this.extractType(typeNode);
     const name = idNode.image ?? '';
     const line = this.getLine(idNode);
-    const col  = this.getCol(idNode);
+    const col = this.getCol(idNode);
 
     // Extraer tipos de parámetros
     const paramTypes: CType[] = [];
     for (const param of paramListNode?.children ?? []) {
       if (param.name === 'param') {
-        const pType = this.extractType(param.children?.find(c => c.name === 'typeSpecifier'));
+        const pType = this.extractType(
+          param.children?.find((c) => c.name === 'typeSpecifier'),
+        );
         paramTypes.push(pType);
       }
     }
 
-    const funcType: CType = { kind: 'function', returnType, params: paramTypes };
+    const funcType: CType = {
+      kind: 'function',
+      returnType,
+      params: paramTypes,
+    };
     const ok = this.table.define({
-      name, type: funcType, kind: 'function',
-      scopeLevel: this.table.level, line, column: col,
-      used: false, initialized: true,
+      name,
+      type: funcType,
+      kind: 'function',
+      scopeLevel: this.table.level,
+      line,
+      column: col,
+      used: false,
+      initialized: true,
     });
 
     if (!ok) {
-      this.error(`Función '${name}' ya fue declarada en este ámbito`, line, col);
+      this.error(
+        `Función '${name}' ya fue declarada en este ámbito`,
+        line,
+        col,
+      );
     }
 
     // Analizar cuerpo en nuevo ámbito con parámetros registrados
@@ -350,15 +529,20 @@ export class SemanticAnalyzer {
     // Registrar parámetros en el ámbito de la función
     for (const param of paramListNode?.children ?? []) {
       if (param.name !== 'param') continue;
-      const pTypeNode = param.children?.find(c => c.name === 'typeSpecifier');
-      const pIdNode   = param.children?.find(c => c.name === 'identifier');
+      const pTypeNode = param.children?.find((c) => c.name === 'typeSpecifier');
+      const pIdNode = param.children?.find((c) => c.name === 'identifier');
       if (!pIdNode) continue;
       const pType = this.extractType(pTypeNode);
       const pName = pIdNode.image ?? '';
       this.table.define({
-        name: pName, type: pType, kind: 'parameter',
-        scopeLevel: this.table.level, line: this.getLine(pIdNode), column: this.getCol(pIdNode),
-        used: false, initialized: true,
+        name: pName,
+        type: pType,
+        kind: 'parameter',
+        scopeLevel: this.table.level,
+        line: this.getLine(pIdNode),
+        column: this.getCol(pIdNode),
+        used: false,
+        initialized: true,
       });
     }
 
@@ -372,7 +556,11 @@ export class SemanticAnalyzer {
     const funcScope = this.table.exitScope();
     for (const sym of funcScope.values()) {
       if (!sym.used && sym.kind === 'parameter') {
-        this.warn(`Parámetro '${sym.name}' no utilizado en función '${name}'`, sym.line, sym.column);
+        this.warn(
+          `Parámetro '${sym.name}' no utilizado en función '${name}'`,
+          sym.line,
+          sym.column,
+        );
       }
     }
 
@@ -386,7 +574,11 @@ export class SemanticAnalyzer {
     if (children[0]) {
       const condType = this.visitNode(children[0]);
       if (condType === 'void') {
-        this.error('La condición del if no puede ser de tipo void', this.getLine(children[0]), this.getCol(children[0]));
+        this.error(
+          'La condición del if no puede ser de tipo void',
+          this.getLine(children[0]),
+          this.getCol(children[0]),
+        );
       }
     }
     for (let i = 1; i < children.length; i++) this.visitNode(children[i]);
@@ -398,7 +590,11 @@ export class SemanticAnalyzer {
     if (children[0]) {
       const condType = this.visitNode(children[0]);
       if (condType === 'void') {
-        this.error('La condición del while no puede ser de tipo void', this.getLine(children[0]), this.getCol(children[0]));
+        this.error(
+          'La condición del while no puede ser de tipo void',
+          this.getLine(children[0]),
+          this.getCol(children[0]),
+        );
       }
     }
     this.insideLoop++;
@@ -415,7 +611,11 @@ export class SemanticAnalyzer {
     if (children[1]) {
       const condType = this.visitNode(children[1]);
       if (condType === 'void') {
-        this.error('La condición del do-while no puede ser de tipo void', this.getLine(children[1]), this.getCol(children[1]));
+        this.error(
+          'La condición del do-while no puede ser de tipo void',
+          this.getLine(children[1]),
+          this.getCol(children[1]),
+        );
       }
     }
     return 'void';
@@ -429,7 +629,11 @@ export class SemanticAnalyzer {
     const scope = this.table.exitScope();
     for (const sym of scope.values()) {
       if (!sym.used) {
-        this.warn(`Variable '${sym.name}' declarada en for pero nunca usada`, sym.line, sym.column);
+        this.warn(
+          `Variable '${sym.name}' declarada en for pero nunca usada`,
+          sym.line,
+          sym.column,
+        );
       }
     }
     return 'void';
@@ -439,17 +643,26 @@ export class SemanticAnalyzer {
     const children = node.children ?? [];
     if (children.length === 0) {
       if (this.currentFunctionReturn !== 'void') {
-        this.warn(`Función con tipo de retorno '${typeToString(this.currentFunctionReturn)}' retorna sin valor`, 0, 0);
+        this.warn(
+          `Función con tipo de retorno '${typeToString(this.currentFunctionReturn)}' retorna sin valor`,
+          0,
+          0,
+        );
       }
       return 'void';
     }
     const retType = this.visitNode(children[0]);
     if (this.currentFunctionReturn === 'void' && retType !== 'void') {
-      this.error(`Función void no puede retornar un valor`, this.getLine(children[0]), this.getCol(children[0]));
+      this.error(
+        `Función void no puede retornar un valor`,
+        this.getLine(children[0]),
+        this.getCol(children[0]),
+      );
     } else if (!typesCompatible(this.currentFunctionReturn, retType)) {
       this.error(
         `Tipo de retorno incompatible: se esperaba '${typeToString(this.currentFunctionReturn)}' pero se encontró '${typeToString(retType)}'`,
-        this.getLine(children[0]), this.getCol(children[0]),
+        this.getLine(children[0]),
+        this.getCol(children[0]),
       );
     }
     return retType;
@@ -460,7 +673,11 @@ export class SemanticAnalyzer {
     if (children[0]) {
       const exprType = this.visitNode(children[0]);
       if (!isNumeric(exprType)) {
-        this.error(`La expresión del switch debe ser de tipo entero, se encontró '${typeToString(exprType)}'`, this.getLine(children[0]), this.getCol(children[0]));
+        this.error(
+          `La expresión del switch debe ser de tipo entero, se encontró '${typeToString(exprType)}'`,
+          this.getLine(children[0]),
+          this.getCol(children[0]),
+        );
       }
     }
     this.insideSwitch++;
@@ -474,7 +691,11 @@ export class SemanticAnalyzer {
     if (children[0]) {
       const caseType = this.visitNode(children[0]);
       if (!isNumeric(caseType) && caseType !== 'char') {
-        this.error(`El valor del case debe ser una constante entera`, this.getLine(children[0]), this.getCol(children[0]));
+        this.error(
+          `El valor del case debe ser una constante entera`,
+          this.getLine(children[0]),
+          this.getCol(children[0]),
+        );
       }
     }
     for (let i = 1; i < children.length; i++) this.visitNode(children[i]);
@@ -483,14 +704,22 @@ export class SemanticAnalyzer {
 
   private visitBreak(node: CSTNode): CType {
     if (this.insideLoop === 0 && this.insideSwitch === 0) {
-      this.error(`'break' fuera de un bucle o switch`, this.getLine(node), this.getCol(node));
+      this.error(
+        `'break' fuera de un bucle o switch`,
+        this.getLine(node),
+        this.getCol(node),
+      );
     }
     return 'void';
   }
 
   private visitContinue(node: CSTNode): CType {
     if (this.insideLoop === 0) {
-      this.error(`'continue' fuera de un bucle`, this.getLine(node), this.getCol(node));
+      this.error(
+        `'continue' fuera de un bucle`,
+        this.getLine(node),
+        this.getCol(node),
+      );
     }
     return 'void';
   }
@@ -499,14 +728,15 @@ export class SemanticAnalyzer {
   private visitAssignment(node: CSTNode): CType {
     const children = node.children ?? [];
     if (children.length < 3) return 'unknown';
-    const leftType  = this.visitNode(children[0]);
+    const leftType = this.visitNode(children[0]);
     const rightType = this.visitNode(children[2]);
-    const op        = children[1].image ?? '=';
+    const op = children[1].image ?? '=';
 
     if (!typesCompatible(leftType, rightType)) {
       this.error(
         `Asignación '${op}' incompatible: no se puede asignar '${typeToString(rightType)}' a '${typeToString(leftType)}'`,
-        this.getLine(children[1]), this.getCol(children[1]),
+        this.getLine(children[1]),
+        this.getCol(children[1]),
       );
     }
     // Marcar como inicializado si es una variable en el lado izquierdo
@@ -520,38 +750,51 @@ export class SemanticAnalyzer {
   private visitBinaryExpr(node: CSTNode): CType {
     const children = node.children ?? [];
     if (children.length < 3) return 'unknown';
-    const leftType  = this.visitNode(children[0]);
-    const op        = children[1].image ?? '';
+    const leftType = this.visitNode(children[0]);
+    const op = children[1].image ?? '';
     const rightType = this.visitNode(children[2]);
 
     // Operadores relacionales siempre producen bool
-    if (['==','!=','<','>','<=','>=','&&','||'].includes(op)) return 'bool';
+    if (['==', '!=', '<', '>', '<=', '>=', '&&', '||'].includes(op))
+      return 'bool';
 
     // Operaciones aritméticas: verificar tipos compatibles
-    if (['+','-','*','/','%'].includes(op)) {
+    if (['+', '-', '*', '/', '%'].includes(op)) {
       if (!isNumeric(leftType) || !isNumeric(rightType)) {
         // Excepción: puntero + int es válido
         const ptrArith =
-          (typeof leftType  === 'object' && leftType.kind  === 'pointer' && isNumeric(rightType)) ||
-          (typeof rightType === 'object' && rightType.kind === 'pointer' && isNumeric(leftType));
+          (typeof leftType === 'object' &&
+            leftType.kind === 'pointer' &&
+            isNumeric(rightType)) ||
+          (typeof rightType === 'object' &&
+            rightType.kind === 'pointer' &&
+            isNumeric(leftType));
         if (!ptrArith) {
           this.error(
             `Operador '${op}' requiere operandos numéricos, se encontró '${typeToString(leftType)}' y '${typeToString(rightType)}'`,
-            this.getLine(children[1]), this.getCol(children[1]),
+            this.getLine(children[1]),
+            this.getCol(children[1]),
           );
         }
       }
       // Promoción: si hay double, el resultado es double
       if (leftType === 'double' || rightType === 'double') return 'double';
-      if (leftType === 'float'  || rightType === 'float')  return 'float';
+      if (leftType === 'float' || rightType === 'float') return 'float';
       return 'int';
     }
 
     // División por cero literal
     if (op === '/' || op === '%') {
       const rightChild = children[2];
-      if (rightChild.name === 'numberLiteral' && (rightChild.image === '0' || rightChild.image === '0.0')) {
-        this.error(`División por cero detectada`, this.getLine(children[1]), this.getCol(children[1]));
+      if (
+        rightChild.name === 'numberLiteral' &&
+        (rightChild.image === '0' || rightChild.image === '0.0')
+      ) {
+        this.error(
+          `División por cero detectada`,
+          this.getLine(children[1]),
+          this.getCol(children[1]),
+        );
       }
     }
 
@@ -565,9 +808,14 @@ export class SemanticAnalyzer {
     if (op === '!') return 'bool';
     if (op === '&') return { kind: 'pointer', base: operandType };
     if (op === '*') {
-      if (typeof operandType === 'object' && operandType.kind === 'pointer') return operandType.base;
+      if (typeof operandType === 'object' && operandType.kind === 'pointer')
+        return operandType.base;
       if (operandType !== 'unknown') {
-        this.error(`Operador '*' aplicado a tipo no puntero '${typeToString(operandType)}'`, this.getLine(node), this.getCol(node));
+        this.error(
+          `Operador '*' aplicado a tipo no puntero '${typeToString(operandType)}'`,
+          this.getLine(node),
+          this.getCol(node),
+        );
       }
     }
     return operandType;
@@ -577,8 +825,16 @@ export class SemanticAnalyzer {
     const children = node.children ?? [];
     const t = children[0] ? this.visitNode(children[0]) : 'unknown';
     const op = children[1]?.image ?? '';
-    if ((op === '++' || op === '--') && !isNumeric(t) && !(typeof t === 'object' && t.kind === 'pointer')) {
-      this.error(`Operador '${op}' requiere un tipo numérico o puntero`, this.getLine(node), this.getCol(node));
+    if (
+      (op === '++' || op === '--') &&
+      !isNumeric(t) &&
+      !(typeof t === 'object' && t.kind === 'pointer')
+    ) {
+      this.error(
+        `Operador '${op}' requiere un tipo numérico o puntero`,
+        this.getLine(node),
+        this.getCol(node),
+      );
     }
     return t;
   }
@@ -587,14 +843,19 @@ export class SemanticAnalyzer {
     const children = node.children ?? [];
     const condType = children[0] ? this.visitNode(children[0]) : 'unknown';
     if (condType === 'void') {
-      this.error(`La condición del operador ternario no puede ser void`, this.getLine(node), this.getCol(node));
+      this.error(
+        `La condición del operador ternario no puede ser void`,
+        this.getLine(node),
+        this.getCol(node),
+      );
     }
     const thenType = children[1] ? this.visitNode(children[1]) : 'unknown';
     const elseType = children[2] ? this.visitNode(children[2]) : 'unknown';
     if (!typesCompatible(thenType, elseType)) {
       this.warn(
         `Los dos ramas del operador ternario tienen tipos incompatibles: '${typeToString(thenType)}' y '${typeToString(elseType)}'`,
-        this.getLine(node), this.getCol(node),
+        this.getLine(node),
+        this.getCol(node),
       );
     }
     return thenType !== 'unknown' ? thenType : elseType;
@@ -612,7 +873,11 @@ export class SemanticAnalyzer {
     const sym = this.table.lookup(funcName);
 
     if (!sym) {
-      this.error(`Función '${funcName}' no declarada`, this.getLine(calleeNode), this.getCol(calleeNode));
+      this.error(
+        `Función '${funcName}' no declarada`,
+        this.getLine(calleeNode),
+        this.getCol(calleeNode),
+      );
       this.visitChildren(argListNode ?? { name: 'argList', children: [] });
       return 'unknown';
     }
@@ -621,26 +886,41 @@ export class SemanticAnalyzer {
 
     const funcType = sym.type;
     if (typeof funcType === 'string' || funcType.kind !== 'function') {
-      this.error(`'${funcName}' no es una función`, this.getLine(calleeNode), this.getCol(calleeNode));
+      this.error(
+        `'${funcName}' no es una función`,
+        this.getLine(calleeNode),
+        this.getCol(calleeNode),
+      );
       return 'unknown';
     }
 
     // Verificar número de argumentos (solo si la función tiene parámetros fijos)
-    const argNodes = (argListNode?.children ?? []).filter(c => c.name !== 'op');
-    if (funcType.params.length > 0 && argNodes.length !== funcType.params.length) {
+    const argNodes = (argListNode?.children ?? []).filter(
+      (c) => c.name !== 'op',
+    );
+    if (
+      funcType.params.length > 0 &&
+      argNodes.length !== funcType.params.length
+    ) {
       this.warn(
         `Función '${funcName}' espera ${funcType.params.length} argumento(s) pero se pasan ${argNodes.length}`,
-        this.getLine(calleeNode), this.getCol(calleeNode),
+        this.getLine(calleeNode),
+        this.getCol(calleeNode),
       );
     }
 
     // Verificar tipos de argumentos
-    for (let i = 0; i < Math.min(argNodes.length, funcType.params.length); i++) {
+    for (
+      let i = 0;
+      i < Math.min(argNodes.length, funcType.params.length);
+      i++
+    ) {
       const argType = this.visitNode(argNodes[i]);
       if (!typesCompatible(funcType.params[i], argType)) {
         this.warn(
           `Argumento ${i + 1} de '${funcName}': se esperaba '${typeToString(funcType.params[i])}' pero se encontró '${typeToString(argType)}'`,
-          this.getLine(argNodes[i]), this.getCol(argNodes[i]),
+          this.getLine(argNodes[i]),
+          this.getCol(argNodes[i]),
         );
       }
     }
@@ -654,20 +934,28 @@ export class SemanticAnalyzer {
 
   private visitArrayAccess(node: CSTNode): CType {
     const children = node.children ?? [];
-    const baseType  = children[0] ? this.visitNode(children[0]) : 'unknown';
+    const baseType = children[0] ? this.visitNode(children[0]) : 'unknown';
     const indexType = children[1] ? this.visitNode(children[1]) : 'unknown';
 
     if (!isNumeric(indexType) && indexType !== 'unknown') {
-      this.error(`El índice del arreglo debe ser entero, se encontró '${typeToString(indexType)}'`, this.getLine(node), this.getCol(node));
+      this.error(
+        `El índice del arreglo debe ser entero, se encontró '${typeToString(indexType)}'`,
+        this.getLine(node),
+        this.getCol(node),
+      );
     }
-    if (typeof baseType === 'object' && baseType.kind === 'array')   return baseType.base;
-    if (typeof baseType === 'object' && baseType.kind === 'pointer') return baseType.base;
+    if (typeof baseType === 'object' && baseType.kind === 'array')
+      return baseType.base;
+    if (typeof baseType === 'object' && baseType.kind === 'pointer')
+      return baseType.base;
     return 'unknown';
   }
 
   private visitCast(node: CSTNode): CType {
     const children = node.children ?? [];
-    const targetType = this.extractType(children.find(c => c.name === 'typeSpecifier'));
+    const targetType = this.extractType(
+      children.find((c) => c.name === 'typeSpecifier'),
+    );
     if (children[1]) this.visitNode(children[1]);
     return targetType;
   }
@@ -676,11 +964,19 @@ export class SemanticAnalyzer {
     const name = node.image ?? '';
     const sym = this.table.lookup(name);
     if (!sym) {
-      this.error(`Variable '${name}' no declarada`, this.getLine(node), this.getCol(node));
+      this.error(
+        `Variable '${name}' no declarada`,
+        this.getLine(node),
+        this.getCol(node),
+      );
       return 'unknown';
     }
     if (!sym.initialized && sym.kind !== 'function') {
-      this.warn(`Variable '${name}' usada sin haber sido inicializada`, this.getLine(node), this.getCol(node));
+      this.warn(
+        `Variable '${name}' usada sin haber sido inicializada`,
+        this.getLine(node),
+        this.getCol(node),
+      );
     }
     sym.used = true;
     return sym.type;
@@ -694,9 +990,25 @@ export class SemanticAnalyzer {
     let ptrCount = 0;
 
     for (const part of parts) {
-      if (part.name === 'pointer') { ptrCount++; continue; }
+      if (part.name === 'pointer') {
+        ptrCount++;
+        continue;
+      }
       const v = part.image ?? '';
-      if (['int','float','double','char','void','bool','long','short','unsigned','signed'].includes(v)) {
+      if (
+        [
+          'int',
+          'float',
+          'double',
+          'char',
+          'void',
+          'bool',
+          'long',
+          'short',
+          'unsigned',
+          'signed',
+        ].includes(v)
+      ) {
         base = v as CType;
       }
     }

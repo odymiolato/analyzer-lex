@@ -1,43 +1,33 @@
-import {
-  createToken,
-  CstParser
-} from 'chevrotain';
+import { createToken, CstParser } from 'chevrotain';
 
 export const Int = createToken({
   name: 'Int',
-  pattern: /int/
+  pattern: /int/,
 });
 
 export const Identifier = createToken({
   name: 'Identifier',
-  pattern: /[a-zA-Z_$][a-zA-Z0-9_$]*/
+  pattern: /[a-zA-Z_$][a-zA-Z0-9_$]*/,
 });
 
 export const Assign = createToken({
   name: 'Assign',
-  pattern: /=/
+  pattern: /=/,
 });
 
 export const NumberLiteral = createToken({
   name: 'NumberLiteral',
-  pattern: /\d+/
+  pattern: /\d+/,
 });
 
 export const SemiColon = createToken({
   name: 'SemiColon',
-  pattern: /;/
+  pattern: /;/,
 });
 
-const allTokens = [
-  Int,
-  Identifier,
-  Assign,
-  NumberLiteral,
-  SemiColon
-];
+const allTokens = [Int, Identifier, Assign, NumberLiteral, SemiColon];
 
 export class MiniCParser extends CstParser {
-
   constructor() {
     super(allTokens);
 

@@ -21,17 +21,20 @@ export interface OptimizeResult {
   original: { program: TACProgram; listing: string };
   optimized: { program: TACProgram; listing: string };
   applied: AppliedOptimization[];
-  stats: { instructionsBefore: number; instructionsAfter: number; removed: number };
+  stats: {
+    instructionsBefore: number;
+    instructionsAfter: number;
+    removed: number;
+  };
 }
 
 @Injectable()
 export class CompilerService {
-
   /** Análisis léxico — sin cambios */
   tokenize(source: string) {
     lexer.reset(source);
     const tokens = [...lexer];
-    return tokens.map(token => ({
+    return tokens.map((token) => ({
       type: token.type,
       value: token.value,
       line: token.line,
@@ -42,11 +45,11 @@ export class CompilerService {
   /** Análisis sintáctico */
   parse(source: string): { cst: CSTNode; errors: SyntaxError[] } {
     lexer.reset(source);
-    const rawTokens: MooToken[] = [...lexer].map(t => ({
-      type:  t.type  ?? 'unknown',
+    const rawTokens: MooToken[] = [...lexer].map((t) => ({
+      type: t.type ?? 'unknown',
       value: t.value,
-      line:  t.line  ?? 0,
-      col:   t.col   ?? 0,
+      line: t.line ?? 0,
+      col: t.col ?? 0,
     }));
 
     const parser = new CParser(rawTokens);
@@ -56,7 +59,11 @@ export class CompilerService {
   }
 
   /** Análisis semántico — nuevo */
-  analyze(source: string): { cst: CSTNode; syntaxErrors: SyntaxError[]; semantic: SemanticResult } {
+  analyze(source: string): {
+    cst: CSTNode;
+    syntaxErrors: SyntaxError[];
+    semantic: SemanticResult;
+  } {
     const { cst, errors: syntaxErrors } = this.parse(source);
     const analyzer = new SemanticAnalyzer();
     const semantic = analyzer.analyze(cst);
@@ -64,10 +71,15 @@ export class CompilerService {
   }
 
   /** Traducción de C a otro lenguaje */
-  translate(source: string, target: TargetLanguage): TranslateResult & { syntaxErrors: SyntaxError[] } {
+  translate(
+    source: string,
+    target: TargetLanguage,
+  ): TranslateResult & { syntaxErrors: SyntaxError[] } {
     const validTargets: TargetLanguage[] = ['javascript', 'cpp'];
     if (!validTargets.includes(target)) {
-      throw new BadRequestException(`Lenguaje destino inválido. Use: ${validTargets.join(', ')}`);
+      throw new BadRequestException(
+        `Lenguaje destino inválido. Use: ${validTargets.join(', ')}`,
+      );
     }
 
     const { cst, errors: syntaxErrors } = this.parse(source);
@@ -95,13 +107,21 @@ export class CompilerService {
 
     const generator = new TACGenerator();
     const program = generator.generate(cst);
-    return { syntaxErrors, program, listing: formatQuads(programToQuads(program)) };
+    return {
+      syntaxErrors,
+      program,
+      listing: formatQuads(programToQuads(program)),
+    };
   }
 
   /** Optimización del código destino generado */
   optimize(source: string): OptimizeResult {
     const { syntaxErrors, program } = this.generateTarget(source);
-    const emptyStats = { instructionsBefore: 0, instructionsAfter: 0, removed: 0 };
+    const emptyStats = {
+      instructionsBefore: 0,
+      instructionsAfter: 0,
+      removed: 0,
+    };
 
     if (syntaxErrors.length > 0) {
       const empty: TACProgram = { globals: [], functions: [] };
@@ -132,12 +152,18 @@ export class CompilerService {
       return { ...fn, code: result.code };
     });
 
-    const optimizedProgram: TACProgram = { globals: globalsResult.code, functions: optimizedFunctions };
+    const optimizedProgram: TACProgram = {
+      globals: globalsResult.code,
+      functions: optimizedFunctions,
+    };
 
     return {
       syntaxErrors,
       original: { program, listing: formatQuads(programToQuads(program)) },
-      optimized: { program: optimizedProgram, listing: formatQuads(programToQuads(optimizedProgram)) },
+      optimized: {
+        program: optimizedProgram,
+        listing: formatQuads(programToQuads(optimizedProgram)),
+      },
       applied,
       stats: {
         instructionsBefore,

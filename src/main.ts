@@ -6,7 +6,10 @@ async function bootstrap() {
 
   const frontendOrigin = process.env.FRONTEND_ORIGIN;
   const allowedOrigins = frontendOrigin
-    ? frontendOrigin.split(',').map((origin) => origin.trim()).filter(Boolean)
+    ? frontendOrigin
+        .split(',')
+        .map((origin) => origin.trim())
+        .filter(Boolean)
     : ['http://localhost:3000'];
 
   app.enableCors({

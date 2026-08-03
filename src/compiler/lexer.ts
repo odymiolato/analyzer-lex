@@ -1,16 +1,12 @@
 import moo from 'moo';
 
 export const lexer = moo.compile({
-
   WS: {
     match: /[ \t\r\n]+/,
     lineBreaks: true,
   },
 
-  COMMENT: [
-    /\/\/.*$/,
-    /\/\*[^]*?\*\//
-  ],
+  COMMENT: [/\/\/.*$/, /\/\*[^]*?\*\//],
 
   PREPROCESSOR: /#[a-zA-Z_][a-zA-Z0-9_]*/,
 
@@ -40,7 +36,7 @@ export const lexer = moo.compile({
     'continue',
     'return',
     'goto',
-    'sizeof'
+    'sizeof',
   ],
 
   TYPE: [
@@ -62,13 +58,10 @@ export const lexer = moo.compile({
     'static',
     'extern',
     'register',
-    'auto'
+    'auto',
   ],
 
-  BOOLEAN: [
-    'true',
-    'false'
-  ],
+  BOOLEAN: ['true', 'false'],
 
   OPERATOR: [
     '>>=',
@@ -111,23 +104,12 @@ export const lexer = moo.compile({
     '^',
     '~',
 
-    '?'
+    '?',
   ],
 
-  PUNCTUATION: [
-    '(',
-    ')',
-    '{',
-    '}',
-    '[',
-    ']',
-    ';',
-    ',',
-    '.',
-    ':'
-  ],
+  PUNCTUATION: ['(', ')', '{', '}', '[', ']', ';', ',', '.', ':'],
 
   IDENTIFIER: /[a-zA-Z_][a-zA-Z0-9_]*/,
 
-  ERROR: /./
+  ERROR: /./,
 });

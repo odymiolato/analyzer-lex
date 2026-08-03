@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { CompilerService } from './src/compiler/compiler.service';
+import { CompilerService } from './compiler/compiler.service';
 
 function printUsage(): void {
   console.log('Uso: analyzer-lex <ruta-archivo-c>');

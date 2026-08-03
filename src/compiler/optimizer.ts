@@ -27,12 +27,40 @@ export interface OptimizerResult {
   };
 }
 
-const PURE_BINARY = new Set(['+', '-', '*', '/', '%', '==', '!=', '<', '>', '<=', '>=', '&', '|', '^', '<<', '>>']);
+const PURE_BINARY = new Set([
+  '+',
+  '-',
+  '*',
+  '/',
+  '%',
+  '==',
+  '!=',
+  '<',
+  '>',
+  '<=',
+  '>=',
+  '&',
+  '|',
+  '^',
+  '<<',
+  '>>',
+]);
 const PURE_UNARY = new Set(['uminus', 'not', 'bnot']);
 const JUMP_OPS = new Set(['goto', 'ifFalse', 'ifTrue']);
 const NEVER_REMOVE_OPS = new Set([
-  'call', 'param', 'return', 'goto', 'ifFalse', 'ifTrue', 'label',
-  'func', 'endfunc', '[]=', 'getparam', 'decl', 'storeind',
+  'call',
+  'param',
+  'return',
+  'goto',
+  'ifFalse',
+  'ifTrue',
+  'label',
+  'func',
+  'endfunc',
+  '[]=',
+  'getparam',
+  'decl',
+  'storeind',
 ]);
 
 const NUMERIC_RE = /^-?\d+(\.\d+)?$/;
@@ -49,9 +77,15 @@ function evalBinary(op: string, a: string, b: string): string | null {
   const bothInt = !a.includes('.') && !b.includes('.');
   let r: number;
   switch (op) {
-    case '+': r = x + y; break;
-    case '-': r = x - y; break;
-    case '*': r = x * y; break;
+    case '+':
+      r = x + y;
+      break;
+    case '-':
+      r = x - y;
+      break;
+    case '*':
+      r = x * y;
+      break;
     case '/':
       if (y === 0) return null;
       r = bothInt ? Math.trunc(x / y) : x / y;
@@ -60,18 +94,35 @@ function evalBinary(op: string, a: string, b: string): string | null {
       if (y === 0) return null;
       r = x % y;
       break;
-    case '==': return x === y ? '1' : '0';
-    case '!=': return x !== y ? '1' : '0';
-    case '<':  return x < y  ? '1' : '0';
-    case '>':  return x > y  ? '1' : '0';
-    case '<=': return x <= y ? '1' : '0';
-    case '>=': return x >= y ? '1' : '0';
-    case '&':  r = (x | 0) & (y | 0); break;
-    case '|':  r = (x | 0) | (y | 0); break;
-    case '^':  r = (x | 0) ^ (y | 0); break;
-    case '<<': r = (x | 0) << (y | 0); break;
-    case '>>': r = (x | 0) >> (y | 0); break;
-    default: return null;
+    case '==':
+      return x === y ? '1' : '0';
+    case '!=':
+      return x !== y ? '1' : '0';
+    case '<':
+      return x < y ? '1' : '0';
+    case '>':
+      return x > y ? '1' : '0';
+    case '<=':
+      return x <= y ? '1' : '0';
+    case '>=':
+      return x >= y ? '1' : '0';
+    case '&':
+      r = (x | 0) & (y | 0);
+      break;
+    case '|':
+      r = x | 0 | (y | 0);
+      break;
+    case '^':
+      r = (x | 0) ^ (y | 0);
+      break;
+    case '<<':
+      r = (x | 0) << (y | 0);
+      break;
+    case '>>':
+      r = (x | 0) >> (y | 0);
+      break;
+    default:
+      return null;
   }
   return String(r);
 }
@@ -79,10 +130,14 @@ function evalBinary(op: string, a: string, b: string): string | null {
 function evalUnary(op: string, a: string): string | null {
   const x = parseFloat(a);
   switch (op) {
-    case 'uminus': return String(-x);
-    case 'not': return x === 0 ? '1' : '0';
-    case 'bnot': return String(~(x | 0));
-    default: return null;
+    case 'uminus':
+      return String(-x);
+    case 'not':
+      return x === 0 ? '1' : '0';
+    case 'bnot':
+      return String(~(x | 0));
+    default:
+      return null;
   }
 }
 
@@ -91,7 +146,11 @@ function computeLeaders(code: Quad[]): Set<number> {
   const leaders = new Set<number>([0]);
   code.forEach((instr, i) => {
     if (instr.op === 'label' || instr.op === 'func') leaders.add(i);
-    if (JUMP_OPS.has(instr.op) || instr.op === 'return' || instr.op === 'endfunc') {
+    if (
+      JUMP_OPS.has(instr.op) ||
+      instr.op === 'return' ||
+      instr.op === 'endfunc'
+    ) {
       if (i + 1 < code.length) leaders.add(i + 1);
     }
   });
@@ -150,10 +209,17 @@ export class Optimizer {
   }
 
   // 1. Plegado de constantes ────────────────────────────────────────────
-  private foldConstants(code: Quad[], applied: AppliedOptimization[]): { code: Quad[]; changed: boolean } {
+  private foldConstants(
+    code: Quad[],
+    applied: AppliedOptimization[],
+  ): { code: Quad[]; changed: boolean } {
     let changed = false;
     const out = code.map((instr) => {
-      if (PURE_BINARY.has(instr.op) && isNumericLiteral(instr.arg1) && isNumericLiteral(instr.arg2)) {
+      if (
+        PURE_BINARY.has(instr.op) &&
+        isNumericLiteral(instr.arg1) &&
+        isNumericLiteral(instr.arg2)
+      ) {
         const value = evalBinary(instr.op, instr.arg1, instr.arg2);
         if (value !== null) {
           changed = true;
@@ -181,21 +247,32 @@ export class Optimizer {
   }
 
   // 2. Simplificación algebraica ─────────────────────────────────────────
-  private simplifyAlgebra(code: Quad[], applied: AppliedOptimization[]): { code: Quad[]; changed: boolean } {
+  private simplifyAlgebra(
+    code: Quad[],
+    applied: AppliedOptimization[],
+  ): { code: Quad[]; changed: boolean } {
     let changed = false;
     const out = code.map((instr) => {
-      if (!PURE_BINARY.has(instr.op) || instr.arg1 === null || instr.arg2 === null) return instr;
+      if (
+        !PURE_BINARY.has(instr.op) ||
+        instr.arg1 === null ||
+        instr.arg2 === null
+      )
+        return instr;
       const { op, arg1, arg2, result } = instr;
       const rewrite = (place: string | null): Quad => {
         changed = true;
-        applied.push({ pass: 'Simplificación algebraica', description: `${formatQuad(instr)}  →  ${result} = ${place}` });
+        applied.push({
+          pass: 'Simplificación algebraica',
+          description: `${formatQuad(instr)}  →  ${result} = ${place}`,
+        });
         return q('=', place, null, result);
       };
       if (op === '+' && arg2 === '0') return rewrite(arg1);
       if (op === '+' && arg1 === '0') return rewrite(arg2);
       if (op === '-' && arg2 === '0') return rewrite(arg1);
-      if ((op === '*' && arg2 === '1')) return rewrite(arg1);
-      if ((op === '*' && arg1 === '1')) return rewrite(arg2);
+      if (op === '*' && arg2 === '1') return rewrite(arg1);
+      if (op === '*' && arg1 === '1') return rewrite(arg2);
       if (op === '/' && arg2 === '1') return rewrite(arg1);
       if (op === '*' && (arg1 === '0' || arg2 === '0')) return rewrite('0');
       return instr;
@@ -204,7 +281,10 @@ export class Optimizer {
   }
 
   // 3. Propagación de copias y constantes (local a cada bloque básico) ───
-  private propagateCopiesAndConstants(code: Quad[], applied: AppliedOptimization[]): { code: Quad[]; changed: boolean } {
+  private propagateCopiesAndConstants(
+    code: Quad[],
+    applied: AppliedOptimization[],
+  ): { code: Quad[]; changed: boolean } {
     let changed = false;
     const out = code.slice();
 
@@ -227,7 +307,10 @@ export class Optimizer {
 
         if (instr.arg1 !== null || instr.arg2 !== null) {
           const newArg1 = resolve(instr.arg1);
-          const newArg2 = instr.op === 'call' || instr.op === 'param' ? instr.arg2 : resolve(instr.arg2);
+          const newArg2 =
+            instr.op === 'call' || instr.op === 'param'
+              ? instr.arg2
+              : resolve(instr.arg2);
           if (newArg1 !== instr.arg1 || newArg2 !== instr.arg2) {
             changed = true;
             applied.push({
@@ -239,7 +322,12 @@ export class Optimizer {
         }
 
         const updated = out[i];
-        if (updated.result && !JUMP_OPS.has(updated.op) && updated.op !== 'label' && updated.op !== '[]=') {
+        if (
+          updated.result &&
+          !JUMP_OPS.has(updated.op) &&
+          updated.op !== 'label' &&
+          updated.op !== '[]='
+        ) {
           env.delete(updated.result);
           if (updated.op === '=' && updated.arg1 !== null) {
             env.set(updated.result, updated.arg1);
@@ -252,7 +340,10 @@ export class Optimizer {
   }
 
   // 4. Eliminación de subexpresiones comunes (local a cada bloque) ──────
-  private eliminateCommonSubexpressions(code: Quad[], applied: AppliedOptimization[]): { code: Quad[]; changed: boolean } {
+  private eliminateCommonSubexpressions(
+    code: Quad[],
+    applied: AppliedOptimization[],
+  ): { code: Quad[]; changed: boolean } {
     let changed = false;
     const out = code.slice();
 
@@ -261,7 +352,10 @@ export class Optimizer {
 
       for (let i = start; i < end; i++) {
         const instr = out[i];
-        const isPureBin = PURE_BINARY.has(instr.op) && instr.arg1 !== null && instr.arg2 !== null;
+        const isPureBin =
+          PURE_BINARY.has(instr.op) &&
+          instr.arg1 !== null &&
+          instr.arg2 !== null;
         const isPureUn = PURE_UNARY.has(instr.op) && instr.arg1 !== null;
 
         if (isPureBin || isPureUn) {
@@ -269,7 +363,10 @@ export class Optimizer {
           const existing = available.get(key);
           if (existing) {
             changed = true;
-            applied.push({ pass: 'Eliminación de subexpresiones comunes', description: `${formatQuad(instr)}  →  ${instr.result} = ${existing}` });
+            applied.push({
+              pass: 'Eliminación de subexpresiones comunes',
+              description: `${formatQuad(instr)}  →  ${instr.result} = ${existing}`,
+            });
             out[i] = q('=', existing, null, instr.result);
           } else if (instr.result) {
             available.set(key, instr.result);
@@ -294,20 +391,32 @@ export class Optimizer {
   // ifFalse <literal> goto L  /  ifTrue <literal> goto L  →  goto L (si la
   // condición fuerza el salto) o se elimina (si nunca se toma), habilitando
   // que la eliminación de código inalcanzable pode la rama muerta.
-  private foldConstantBranches(code: Quad[], applied: AppliedOptimization[]): { code: Quad[]; changed: boolean } {
+  private foldConstantBranches(
+    code: Quad[],
+    applied: AppliedOptimization[],
+  ): { code: Quad[]; changed: boolean } {
     let changed = false;
     const out: Quad[] = [];
 
     for (const instr of code) {
-      if ((instr.op === 'ifFalse' || instr.op === 'ifTrue') && isNumericLiteral(instr.arg1)) {
+      if (
+        (instr.op === 'ifFalse' || instr.op === 'ifTrue') &&
+        isNumericLiteral(instr.arg1)
+      ) {
         const isTruthy = parseFloat(instr.arg1) !== 0;
         const alwaysJumps = instr.op === 'ifFalse' ? !isTruthy : isTruthy;
         changed = true;
         if (alwaysJumps) {
-          applied.push({ pass: 'Plegado de saltos constantes', description: `${formatQuad(instr)}  →  goto ${instr.result}` });
+          applied.push({
+            pass: 'Plegado de saltos constantes',
+            description: `${formatQuad(instr)}  →  goto ${instr.result}`,
+          });
           out.push(q('goto', null, null, instr.result));
         } else {
-          applied.push({ pass: 'Plegado de saltos constantes', description: `Eliminado (nunca salta): ${formatQuad(instr)}` });
+          applied.push({
+            pass: 'Plegado de saltos constantes',
+            description: `Eliminado (nunca salta): ${formatQuad(instr)}`,
+          });
         }
         continue;
       }
@@ -318,18 +427,28 @@ export class Optimizer {
   }
 
   // 5. Eliminación de código inalcanzable ────────────────────────────────
-  private removeUnreachableCode(code: Quad[], applied: AppliedOptimization[]): { code: Quad[]; changed: boolean } {
+  private removeUnreachableCode(
+    code: Quad[],
+    applied: AppliedOptimization[],
+  ): { code: Quad[]; changed: boolean } {
     const out: Quad[] = [];
     let changed = false;
     let unreachable = false;
 
     for (const instr of code) {
-      if (instr.op === 'label' || instr.op === 'func' || instr.op === 'endfunc') {
+      if (
+        instr.op === 'label' ||
+        instr.op === 'func' ||
+        instr.op === 'endfunc'
+      ) {
         unreachable = false;
       }
       if (unreachable) {
         changed = true;
-        applied.push({ pass: 'Eliminación de código inalcanzable', description: `Eliminado: ${formatQuad(instr)}` });
+        applied.push({
+          pass: 'Eliminación de código inalcanzable',
+          description: `Eliminado: ${formatQuad(instr)}`,
+        });
         continue;
       }
       out.push(instr);
@@ -340,7 +459,10 @@ export class Optimizer {
   }
 
   // 6. Optimización de saltos (peephole) ─────────────────────────────────
-  private simplifyJumps(code: Quad[], applied: AppliedOptimization[]): { code: Quad[]; changed: boolean } {
+  private simplifyJumps(
+    code: Quad[],
+    applied: AppliedOptimization[],
+  ): { code: Quad[]; changed: boolean } {
     let changed = false;
     let out = code.slice();
 
@@ -349,9 +471,17 @@ export class Optimizer {
     for (let i = 0; i < out.length; i++) {
       const instr = out[i];
       const next = out[i + 1];
-      if (instr.op === 'goto' && next && next.op === 'label' && next.result === instr.result) {
+      if (
+        instr.op === 'goto' &&
+        next &&
+        next.op === 'label' &&
+        next.result === instr.result
+      ) {
         changed = true;
-        applied.push({ pass: 'Optimización de saltos', description: `Eliminado goto redundante al siguiente label: ${formatQuad(instr)}` });
+        applied.push({
+          pass: 'Optimización de saltos',
+          description: `Eliminado goto redundante al siguiente label: ${formatQuad(instr)}`,
+        });
         continue;
       }
       withoutRedundantGotos.push(instr);
@@ -370,10 +500,17 @@ export class Optimizer {
     });
     if (targetAfterLabel.size > 0) {
       out = out.map((instr) => {
-        if (JUMP_OPS.has(instr.op) && instr.result && targetAfterLabel.has(instr.result)) {
+        if (
+          JUMP_OPS.has(instr.op) &&
+          instr.result &&
+          targetAfterLabel.has(instr.result)
+        ) {
           const newTarget = targetAfterLabel.get(instr.result)!;
           changed = true;
-          applied.push({ pass: 'Optimización de saltos', description: `Salto encadenado redirigido: ${formatQuad(instr)}  →  ${formatQuad({ ...instr, result: newTarget })}` });
+          applied.push({
+            pass: 'Optimización de saltos',
+            description: `Salto encadenado redirigido: ${formatQuad(instr)}  →  ${formatQuad({ ...instr, result: newTarget })}`,
+          });
           return { ...instr, result: newTarget };
         }
         return instr;
@@ -386,9 +523,16 @@ export class Optimizer {
       if (JUMP_OPS.has(instr.op) && instr.result) referenced.add(instr.result);
     }
     const withoutDeadLabels = out.filter((instr) => {
-      if (instr.op === 'label' && instr.result && !referenced.has(instr.result)) {
+      if (
+        instr.op === 'label' &&
+        instr.result &&
+        !referenced.has(instr.result)
+      ) {
         changed = true;
-        applied.push({ pass: 'Optimización de saltos', description: `Eliminada etiqueta no referenciada: ${formatQuad(instr)}` });
+        applied.push({
+          pass: 'Optimización de saltos',
+          description: `Eliminada etiqueta no referenciada: ${formatQuad(instr)}`,
+        });
         return false;
       }
       return true;
@@ -398,7 +542,10 @@ export class Optimizer {
   }
 
   // 7. Eliminación de código muerto (solo temporales) ────────────────────
-  private eliminateDeadTemps(code: Quad[], applied: AppliedOptimization[]): { code: Quad[]; changed: boolean } {
+  private eliminateDeadTemps(
+    code: Quad[],
+    applied: AppliedOptimization[],
+  ): { code: Quad[]; changed: boolean } {
     let changed = false;
     const out: Quad[] = [];
 
@@ -408,12 +555,19 @@ export class Optimizer {
         out.push(instr);
         continue;
       }
-      const usedLater = code.some((other, j) => j !== i && (other.arg1 === instr.result || other.arg2 === instr.result));
+      const usedLater = code.some(
+        (other, j) =>
+          j !== i &&
+          (other.arg1 === instr.result || other.arg2 === instr.result),
+      );
       if (usedLater) {
         out.push(instr);
       } else {
         changed = true;
-        applied.push({ pass: 'Eliminación de código muerto', description: `Eliminado (temporal sin uso): ${formatQuad(instr)}` });
+        applied.push({
+          pass: 'Eliminación de código muerto',
+          description: `Eliminado (temporal sin uso): ${formatQuad(instr)}`,
+        });
       }
     }
 
@@ -421,6 +575,11 @@ export class Optimizer {
   }
 }
 
-function q(op: string, arg1: string | null, arg2: string | null, result: string | null): Quad {
+function q(
+  op: string,
+  arg1: string | null,
+  arg2: string | null,
+  result: string | null,
+): Quad {
   return { op, arg1, arg2, result };
 }

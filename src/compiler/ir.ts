@@ -27,14 +27,42 @@ export interface TACProgram {
 }
 
 const BINARY_OPS = new Set([
-  '+', '-', '*', '/', '%', '==', '!=', '<', '>', '<=', '>=', '&', '|', '^', '<<', '>>',
+  '+',
+  '-',
+  '*',
+  '/',
+  '%',
+  '==',
+  '!=',
+  '<',
+  '>',
+  '<=',
+  '>=',
+  '&',
+  '|',
+  '^',
+  '<<',
+  '>>',
 ]);
 const COMPOUND_ASSIGN_TO_OP: Record<string, string> = {
-  '+=': '+', '-=': '-', '*=': '*', '/=': '/', '%=': '%',
-  '&=': '&', '|=': '|', '^=': '^', '<<=': '<<', '>>=': '>>',
+  '+=': '+',
+  '-=': '-',
+  '*=': '*',
+  '/=': '/',
+  '%=': '%',
+  '&=': '&',
+  '|=': '|',
+  '^=': '^',
+  '<<=': '<<',
+  '>>=': '>>',
 };
 
-function q(op: string, arg1: string | null, arg2: string | null, result: string | null): Quad {
+function q(
+  op: string,
+  arg1: string | null,
+  arg2: string | null,
+  result: string | null,
+): Quad {
   return { op, arg1, arg2, result };
 }
 
@@ -42,25 +70,46 @@ function q(op: string, arg1: string | null, arg2: string | null, result: string 
 export function formatQuad(quad: Quad): string {
   const { op, arg1, arg2, result } = quad;
   switch (op) {
-    case 'func':      return `func ${result}:`;
-    case 'endfunc':   return `endfunc ${result}`;
-    case 'getparam':  return `${result} = param[${arg2}]`;
-    case 'label':     return `${result}:`;
-    case 'goto':      return `goto ${result}`;
-    case 'ifFalse':   return `ifFalse ${arg1} goto ${result}`;
-    case 'ifTrue':    return `ifTrue ${arg1} goto ${result}`;
-    case 'param':     return `param ${arg1}`;
-    case 'call':      return result ? `${result} = call ${arg1}, ${arg2}` : `call ${arg1}, ${arg2}`;
-    case 'return':    return arg1 ? `return ${arg1}` : 'return';
-    case '=[]':       return `${result} = ${arg1}[${arg2}]`;
-    case '[]=':       return `${result}[${arg1}] = ${arg2}`;
-    case 'decl':      return `${result} = alloc[${arg2}]`;
-    case '=':         return `${result} = ${arg1}`;
-    case 'uminus':    return `${result} = -${arg1}`;
-    case 'not':       return `${result} = !${arg1}`;
-    case 'bnot':      return `${result} = ~${arg1}`;
-    case 'addr':      return `${result} = &${arg1}`;
-    case 'deref':     return `${result} = *${arg1}`;
+    case 'func':
+      return `func ${result}:`;
+    case 'endfunc':
+      return `endfunc ${result}`;
+    case 'getparam':
+      return `${result} = param[${arg2}]`;
+    case 'label':
+      return `${result}:`;
+    case 'goto':
+      return `goto ${result}`;
+    case 'ifFalse':
+      return `ifFalse ${arg1} goto ${result}`;
+    case 'ifTrue':
+      return `ifTrue ${arg1} goto ${result}`;
+    case 'param':
+      return `param ${arg1}`;
+    case 'call':
+      return result
+        ? `${result} = call ${arg1}, ${arg2}`
+        : `call ${arg1}, ${arg2}`;
+    case 'return':
+      return arg1 ? `return ${arg1}` : 'return';
+    case '=[]':
+      return `${result} = ${arg1}[${arg2}]`;
+    case '[]=':
+      return `${result}[${arg1}] = ${arg2}`;
+    case 'decl':
+      return `${result} = alloc[${arg2}]`;
+    case '=':
+      return `${result} = ${arg1}`;
+    case 'uminus':
+      return `${result} = -${arg1}`;
+    case 'not':
+      return `${result} = !${arg1}`;
+    case 'bnot':
+      return `${result} = ~${arg1}`;
+    case 'addr':
+      return `${result} = &${arg1}`;
+    case 'deref':
+      return `${result} = *${arg1}`;
     default:
       if (BINARY_OPS.has(op)) return `${result} = ${arg1} ${op} ${arg2}`;
       return `${result} = ${arg1} ${op} ${arg2}`;
@@ -127,7 +176,9 @@ export class TACGenerator {
 
     const params: string[] = (paramList?.children ?? [])
       .filter((p) => p.name === 'param')
-      .map((p) => p.children?.find((c) => c.name === 'identifier')?.image ?? '_');
+      .map(
+        (p) => p.children?.find((c) => c.name === 'identifier')?.image ?? '_',
+      );
 
     this.code = [];
     this.emit(q('func', null, null, name));
@@ -165,7 +216,10 @@ export class TACGenerator {
         return;
       case 'returnStatement': {
         const expr = node.children?.[0];
-        if (!expr) { this.emit(q('return', null, null, null)); return; }
+        if (!expr) {
+          this.emit(q('return', null, null, null));
+          return;
+        }
         this.emit(q('return', this.genExpr(expr), null, null));
         return;
       }
@@ -176,7 +230,8 @@ export class TACGenerator {
       }
       case 'continueStatement': {
         const ctx = [...this.loopStack].reverse().find((c) => c.continueLabel);
-        if (ctx?.continueLabel) this.emit(q('goto', null, null, ctx.continueLabel));
+        if (ctx?.continueLabel)
+          this.emit(q('goto', null, null, ctx.continueLabel));
         return;
       }
       case 'expressionStatement':
@@ -199,11 +254,18 @@ export class TACGenerator {
     let i = 1; // 0 es typeSpecifier
     while (i < children.length) {
       const child = children[i];
-      if (child.name !== 'identifier') { i++; continue; }
+      if (child.name !== 'identifier') {
+        i++;
+        continue;
+      }
       const name = child.image ?? '';
 
       // Dimensión de arreglo opcional: int arr[10]
-      if (i + 1 < children.length && children[i + 1].name !== 'assign' && children[i + 1].name !== 'identifier') {
+      if (
+        i + 1 < children.length &&
+        children[i + 1].name !== 'assign' &&
+        children[i + 1].name !== 'identifier'
+      ) {
         const dimPlace = this.genExpr(children[i + 1]);
         this.emit(q('decl', null, dimPlace, name));
         i += 2;
@@ -285,9 +347,15 @@ export class TACGenerator {
     }
 
     let condNode: CSTNode | undefined;
-    if (parts[idx] && parts[idx].name !== 'block') { condNode = parts[idx]; idx++; }
+    if (parts[idx] && parts[idx].name !== 'block') {
+      condNode = parts[idx];
+      idx++;
+    }
     let updateNode: CSTNode | undefined;
-    if (parts[idx] && parts[idx].name !== 'block') { updateNode = parts[idx]; idx++; }
+    if (parts[idx] && parts[idx].name !== 'block') {
+      updateNode = parts[idx];
+      idx++;
+    }
     const body = parts[idx];
 
     const lStart = this.newLabel();
@@ -315,16 +383,31 @@ export class TACGenerator {
     const exprPlace = this.genExpr(children[0]);
     const lEnd = this.newLabel();
 
-    type Clause = { label: string; valuePlace: string | null; body: CSTNode[]; isDefault: boolean };
+    type Clause = {
+      label: string;
+      valuePlace: string | null;
+      body: CSTNode[];
+      isDefault: boolean;
+    };
     const clauses: Clause[] = [];
 
     for (let i = 1; i < children.length; i++) {
       const clause = children[i];
       if (clause.name === 'caseClause') {
         const valuePlace = this.genExpr(clause.children![0]);
-        clauses.push({ label: this.newLabel(), valuePlace, body: (clause.children ?? []).slice(1), isDefault: false });
+        clauses.push({
+          label: this.newLabel(),
+          valuePlace,
+          body: (clause.children ?? []).slice(1),
+          isDefault: false,
+        });
       } else if (clause.name === 'defaultClause') {
-        clauses.push({ label: this.newLabel(), valuePlace: null, body: clause.children ?? [], isDefault: true });
+        clauses.push({
+          label: this.newLabel(),
+          valuePlace: null,
+          body: clause.children ?? [],
+          isDefault: true,
+        });
       }
     }
 
@@ -335,7 +418,9 @@ export class TACGenerator {
       this.emit(q('==', exprPlace, c.valuePlace, t));
       this.emit(q('ifTrue', t, null, c.label));
     }
-    this.emit(q('goto', null, null, defaultClause ? defaultClause.label : lEnd));
+    this.emit(
+      q('goto', null, null, defaultClause ? defaultClause.label : lEnd),
+    );
 
     this.loopStack.push({ continueLabel: null, breakLabel: lEnd });
     for (const c of clauses) {
@@ -415,7 +500,7 @@ export class TACGenerator {
 
   private sizeOfType(typeNode: CSTNode): number {
     const parts = (typeNode.children ?? []).map((c) => c.image ?? '');
-    if (parts.includes('pointer' as any) || parts.some((p) => p === '*')) return 8;
+    if (parts.includes('pointer') || parts.some((p) => p === '*')) return 8;
     if (parts.includes('double')) return 8;
     if (parts.includes('char') || parts.includes('bool')) return 1;
     if (parts.includes('short')) return 2;
@@ -470,7 +555,8 @@ export class TACGenerator {
     const [left, opNode, right] = node.children ?? [];
     const op = opNode?.image ?? '+';
 
-    if (op === '&&' || op === '||') return this.genShortCircuit(left, op, right);
+    if (op === '&&' || op === '||')
+      return this.genShortCircuit(left, op, right);
 
     const leftPlace = this.genExpr(left);
     const rightPlace = this.genExpr(right);
@@ -479,7 +565,11 @@ export class TACGenerator {
     return t;
   }
 
-  private genShortCircuit(left: CSTNode, op: '&&' | '||', right: CSTNode): string {
+  private genShortCircuit(
+    left: CSTNode,
+    op: '&&' | '||',
+    right: CSTNode,
+  ): string {
     const result = this.newTemp();
     const lShort = this.newLabel();
     const lEnd = this.newLabel();
@@ -538,7 +628,12 @@ export class TACGenerator {
 
     const place = this.genExpr(operand);
     const t = this.newTemp();
-    const opMap: Record<string, string> = { '-': 'uminus', '!': 'not', '~': 'bnot', '&': 'addr' };
+    const opMap: Record<string, string> = {
+      '-': 'uminus',
+      '!': 'not',
+      '~': 'bnot',
+      '&': 'addr',
+    };
     this.emit(q(opMap[op] ?? 'uminus', place, null, t));
     return t;
   }

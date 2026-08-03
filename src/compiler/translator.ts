@@ -139,7 +139,9 @@ export class CTranslator {
 
     for (let i = 0; i < children.length; i++) {
       if (children[i].name === 'identifier') {
-        const entry: { name: string; init?: CSTNode } = { name: children[i].image! };
+        const entry: { name: string; init?: CSTNode } = {
+          name: children[i].image!,
+        };
         if (children[i + 1]?.name === 'assign' && children[i + 2]) {
           entry.init = children[i + 2];
           i += 2;
@@ -149,21 +151,25 @@ export class CTranslator {
     }
 
     if (this.target === 'javascript') {
-      return ids
-        .map(({ name, init }) => {
-          const val = init ? ` = ${this.emitExpr(init)}` : '';
-          return `${this.pad()}let ${name}${val};`;
-        })
-        .join('\n') + '\n';
+      return (
+        ids
+          .map(({ name, init }) => {
+            const val = init ? ` = ${this.emitExpr(init)}` : '';
+            return `${this.pad()}let ${name}${val};`;
+          })
+          .join('\n') + '\n'
+      );
     }
 
     const typeStr = typeNode ? this.emitType(typeNode) : 'int';
-    return ids
-      .map(({ name, init }) => {
-        const val = init ? ` = ${this.emitExpr(init)}` : '';
-        return `${this.pad()}${typeStr} ${name}${val};`;
-      })
-      .join('\n') + '\n';
+    return (
+      ids
+        .map(({ name, init }) => {
+          const val = init ? ` = ${this.emitExpr(init)}` : '';
+          return `${this.pad()}${typeStr} ${name}${val};`;
+        })
+        .join('\n') + '\n'
+    );
   }
 
   private emitBlock(node: CSTNode): string {
@@ -357,7 +363,9 @@ export class CTranslator {
         return `${this.emitExpr(node.children![0])}${node.children![1].image ?? '.'}${node.children![2].image ?? ''}`;
       case 'castExpr':
         if (this.target === 'javascript') {
-          this.warnings.push(`Cast omitido en JS: (${this.emitType(node.children![0])})`);
+          this.warnings.push(
+            `Cast omitido en JS: (${this.emitType(node.children![0])})`,
+          );
           return this.emitExpr(node.children![1]);
         }
         return `(${this.emitType(node.children![0])})${this.emitExpr(node.children![1])}`;
@@ -385,7 +393,9 @@ export class CTranslator {
       return this.translatePrintf(args);
     }
     if (fnName === 'scanf') {
-      this.warnings.push('scanf no tiene equivalente directo — generado como comentario');
+      this.warnings.push(
+        'scanf no tiene equivalente directo — generado como comentario',
+      );
       return this.target === 'javascript'
         ? `/* scanf(${this.emitExpr(args)}) */`
         : `/* cin >> ... */`;
@@ -422,8 +432,15 @@ export class CTranslator {
       return `console.log(\`${fmt}${templateParts.join('')}\`)`;
     }
 
-    const rest = args.slice(1).map((a) => this.emitExpr(a)).join(' << " " << ');
-    const fmt = formatStr.replace(/^"|"$/g, '').replace(/\\n/g, '" << endl << "');
-    return rest ? `cout << "${fmt}" << " " << ${rest} << endl` : `cout << "${fmt}" << endl`;
+    const rest = args
+      .slice(1)
+      .map((a) => this.emitExpr(a))
+      .join(' << " " << ');
+    const fmt = formatStr
+      .replace(/^"|"$/g, '')
+      .replace(/\\n/g, '" << endl << "');
+    return rest
+      ? `cout << "${fmt}" << " " << ${rest} << endl`
+      : `cout << "${fmt}" << endl`;
   }
 }

@@ -40,7 +40,9 @@ export class CompilerController {
     if (!body?.code?.trim()) {
       throw new BadRequestException('El campo "code" es requerido');
     }
-    const { cst, syntaxErrors, semantic } = this.compilerService.analyze(body.code);
+    const { cst, syntaxErrors, semantic } = this.compilerService.analyze(
+      body.code,
+    );
     return { cst, syntaxErrors, semantic };
   }
 
@@ -51,7 +53,9 @@ export class CompilerController {
       throw new BadRequestException('El campo "code" es requerido');
     }
     if (!body?.target) {
-      throw new BadRequestException('El campo "target" es requerido (javascript | cpp)');
+      throw new BadRequestException(
+        'El campo "target" es requerido (javascript | cpp)',
+      );
     }
     return this.compilerService.translate(body.code, body.target);
   }

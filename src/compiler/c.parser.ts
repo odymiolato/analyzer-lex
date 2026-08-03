@@ -18,7 +18,7 @@ export interface SyntaxError {
 
 // ─── Token shape que produce moo ─────────────────────────
 export interface MooToken {
-  type: string;   // 'KEYWORD' | 'TYPE' | 'IDENTIFIER' | 'OPERATOR' | 'PUNCTUATION' | ...
+  type: string; // 'KEYWORD' | 'TYPE' | 'IDENTIFIER' | 'OPERATOR' | 'PUNCTUATION' | ...
   value: string;
   line: number;
   col: number;
@@ -45,7 +45,8 @@ class TokenStream {
   constructor(tokens: MooToken[]) {
     // Ignorar WS, comentarios y directivas de preprocesador
     this.tokens = tokens.filter(
-      (t) => t.type !== 'WS' && t.type !== 'COMMENT' && t.type !== 'PREPROCESSOR',
+      (t) =>
+        t.type !== 'WS' && t.type !== 'COMMENT' && t.type !== 'PREPROCESSOR',
     );
   }
 
@@ -68,7 +69,9 @@ class TokenStream {
       const expected = value ? `${type}('${value}')` : type;
       throw new ParseError(
         `Se esperaba ${expected} pero se encontró ${got}`,
-        t?.line ?? 0, t?.col ?? 0, t?.value ?? '',
+        t?.line ?? 0,
+        t?.col ?? 0,
+        t?.value ?? '',
       );
     }
     return this.consume();
@@ -81,7 +84,9 @@ class TokenStream {
       const got = t ? `'${t.value}'` : 'EOF';
       throw new ParseError(
         `Se esperaba '${value}' pero se encontró ${got}`,
-        t?.line ?? 0, t?.col ?? 0, t?.value ?? '',
+        t?.line ?? 0,
+        t?.col ?? 0,
+        t?.value ?? '',
       );
     }
     return this.consume();
@@ -128,7 +133,12 @@ export class CParser {
         children.push(this.statement());
       } catch (e) {
         if (e instanceof ParseError) {
-          this.errors.push({ message: e.message, line: e.line, column: e.column, token: e.token });
+          this.errors.push({
+            message: e.message,
+            line: e.line,
+            column: e.column,
+            token: e.token,
+          });
           this.recover();
         } else throw e;
       }
@@ -138,7 +148,16 @@ export class CParser {
 
   // ── Recuperación de pánico ────────────────────────────────
   private recover() {
-    const safeValues = new Set([';', '}', 'if', 'while', 'for', 'do', 'return', 'switch']);
+    const safeValues = new Set([
+      ';',
+      '}',
+      'if',
+      'while',
+      'for',
+      'do',
+      'return',
+      'switch',
+    ]);
     while (!this.stream.isEOF()) {
       const t = this.stream.peek()!;
       if (safeValues.has(t.value) || t.type === 'TYPE') {
@@ -159,16 +178,26 @@ export class CParser {
 
     // KEYWORD
     switch (t.value) {
-      case '{':        return this.block();
-      case 'if':       return this.ifStatement();
-      case 'while':    return this.whileStatement();
-      case 'for':      return this.forStatement();
-      case 'do':       return this.doWhileStatement();
-      case 'return':   return this.returnStatement();
-      case 'break':    return this.simpleKeyword('break');
-      case 'continue': return this.simpleKeyword('continue');
-      case 'switch':   return this.switchStatement();
-      default:         return this.expressionStatement();
+      case '{':
+        return this.block();
+      case 'if':
+        return this.ifStatement();
+      case 'while':
+        return this.whileStatement();
+      case 'for':
+        return this.forStatement();
+      case 'do':
+        return this.doWhileStatement();
+      case 'return':
+        return this.returnStatement();
+      case 'break':
+        return this.simpleKeyword('break');
+      case 'continue':
+        return this.simpleKeyword('continue');
+      case 'switch':
+        return this.switchStatement();
+      default:
+        return this.expressionStatement();
     }
   }
 
@@ -190,7 +219,12 @@ export class CParser {
     }
     if (parts.length === 0) {
       const t = this.stream.peek();
-      throw new ParseError('Se esperaba un tipo de dato', t?.line ?? 0, t?.col ?? 0, t?.value ?? '');
+      throw new ParseError(
+        'Se esperaba un tipo de dato',
+        t?.line ?? 0,
+        t?.col ?? 0,
+        t?.value ?? '',
+      );
     }
     return node('typeSpecifier', parts);
   }
@@ -287,7 +321,12 @@ export class CParser {
         children.push(this.statement());
       } catch (e) {
         if (e instanceof ParseError) {
-          this.errors.push({ message: e.message, line: e.line, column: e.column, token: e.token });
+          this.errors.push({
+            message: e.message,
+            line: e.line,
+            column: e.column,
+            token: e.token,
+          });
           this.recover();
         } else throw e;
       }
@@ -306,7 +345,9 @@ export class CParser {
 
     if (this.stream.checkValue('else')) {
       this.stream.consume();
-      children.push(this.stream.checkValue('if') ? this.ifStatement() : this.block());
+      children.push(
+        this.stream.checkValue('if') ? this.ifStatement() : this.block(),
+      );
     }
     return node('ifStatement', children);
   }
@@ -382,10 +423,12 @@ export class CParser {
         const caseVal = this.expression();
         this.stream.expectValue(':');
         const stmts: CSTNode[] = [];
-        while (!this.stream.isEOF() &&
-               !this.stream.checkValue('case') &&
-               !this.stream.checkValue('default') &&
-               !this.stream.checkValue('}')) {
+        while (
+          !this.stream.isEOF() &&
+          !this.stream.checkValue('case') &&
+          !this.stream.checkValue('default') &&
+          !this.stream.checkValue('}')
+        ) {
           stmts.push(this.statement());
         }
         children.push(node('caseClause', [caseVal, ...stmts]));
@@ -413,12 +456,29 @@ export class CParser {
   }
 
   // ── Expresiones ──────────────────────────────────────────
-  private expression(): CSTNode { return this.assignment(); }
+  private expression(): CSTNode {
+    return this.assignment();
+  }
 
   private assignment(): CSTNode {
     const left = this.ternary();
-    const assignOps = ['=', '+=', '-=', '*=', '/=', '%=', '&=', '|=', '^=', '<<=', '>>='];
-    if (!this.stream.isEOF() && assignOps.includes(this.stream.peek()?.value ?? '')) {
+    const assignOps = [
+      '=',
+      '+=',
+      '-=',
+      '*=',
+      '/=',
+      '%=',
+      '&=',
+      '|=',
+      '^=',
+      '<<=',
+      '>>=',
+    ];
+    if (
+      !this.stream.isEOF() &&
+      assignOps.includes(this.stream.peek()?.value ?? '')
+    ) {
       const op = this.stream.consume();
       return node('assignment', [left, leaf('op', op), this.assignment()]);
     }
@@ -436,20 +496,43 @@ export class CParser {
     return cond;
   }
 
-  private logicalOr(): CSTNode      { return this.leftAssoc(() => this.logicalAnd(),     ['||']); }
-  private logicalAnd(): CSTNode     { return this.leftAssoc(() => this.bitwiseOr(),      ['&&']); }
-  private bitwiseOr(): CSTNode      { return this.leftAssoc(() => this.bitwiseXor(),     ['|']);  }
-  private bitwiseXor(): CSTNode     { return this.leftAssoc(() => this.bitwiseAnd(),     ['^']);  }
-  private bitwiseAnd(): CSTNode     { return this.leftAssoc(() => this.equality(),       ['&']);  }
-  private equality(): CSTNode       { return this.leftAssoc(() => this.comparison(),     ['==', '!=']); }
-  private comparison(): CSTNode     { return this.leftAssoc(() => this.shift(),          ['<', '>', '<=', '>=']); }
-  private shift(): CSTNode          { return this.leftAssoc(() => this.additive(),       ['<<', '>>']); }
-  private additive(): CSTNode       { return this.leftAssoc(() => this.multiplicative(), ['+', '-']); }
-  private multiplicative(): CSTNode { return this.leftAssoc(() => this.unary(),          ['*', '/', '%']); }
+  private logicalOr(): CSTNode {
+    return this.leftAssoc(() => this.logicalAnd(), ['||']);
+  }
+  private logicalAnd(): CSTNode {
+    return this.leftAssoc(() => this.bitwiseOr(), ['&&']);
+  }
+  private bitwiseOr(): CSTNode {
+    return this.leftAssoc(() => this.bitwiseXor(), ['|']);
+  }
+  private bitwiseXor(): CSTNode {
+    return this.leftAssoc(() => this.bitwiseAnd(), ['^']);
+  }
+  private bitwiseAnd(): CSTNode {
+    return this.leftAssoc(() => this.equality(), ['&']);
+  }
+  private equality(): CSTNode {
+    return this.leftAssoc(() => this.comparison(), ['==', '!=']);
+  }
+  private comparison(): CSTNode {
+    return this.leftAssoc(() => this.shift(), ['<', '>', '<=', '>=']);
+  }
+  private shift(): CSTNode {
+    return this.leftAssoc(() => this.additive(), ['<<', '>>']);
+  }
+  private additive(): CSTNode {
+    return this.leftAssoc(() => this.multiplicative(), ['+', '-']);
+  }
+  private multiplicative(): CSTNode {
+    return this.leftAssoc(() => this.unary(), ['*', '/', '%']);
+  }
 
   private leftAssoc(sub: () => CSTNode, ops: string[]): CSTNode {
     let left = sub();
-    while (!this.stream.isEOF() && ops.includes(this.stream.peek()?.value ?? '')) {
+    while (
+      !this.stream.isEOF() &&
+      ops.includes(this.stream.peek()?.value ?? '')
+    ) {
       const op = this.stream.consume();
       left = node('binaryExpr', [left, leaf('op', op), sub()]);
     }
@@ -499,7 +582,11 @@ export class CParser {
       } else if (t.value === '.' || t.value === '->') {
         const op = this.stream.consume();
         const member = this.stream.expect('IDENTIFIER');
-        base = node('memberAccess', [base, leaf('op', op), leaf('identifier', member)]);
+        base = node('memberAccess', [
+          base,
+          leaf('op', op),
+          leaf('identifier', member),
+        ]);
       } else {
         break;
       }
@@ -520,18 +607,30 @@ export class CParser {
 
   private primary(): CSTNode {
     const t = this.stream.peek();
-    if (!t) throw new ParseError('Fin de archivo inesperado en expresión', 0, 0, 'EOF');
+    if (!t)
+      throw new ParseError(
+        'Fin de archivo inesperado en expresión',
+        0,
+        0,
+        'EOF',
+      );
 
-    if (t.type === 'NUMBER')    return leaf('numberLiteral',  this.stream.consume());
-    if (t.type === 'STRING')    return leaf('stringLiteral',  this.stream.consume());
-    if (t.type === 'CHAR')      return leaf('charLiteral',    this.stream.consume());
-    if (t.type === 'BOOLEAN')   return leaf('booleanLiteral', this.stream.consume());
-    if (t.type === 'IDENTIFIER') return leaf('identifier',    this.stream.consume());
+    if (t.type === 'NUMBER')
+      return leaf('numberLiteral', this.stream.consume());
+    if (t.type === 'STRING')
+      return leaf('stringLiteral', this.stream.consume());
+    if (t.type === 'CHAR') return leaf('charLiteral', this.stream.consume());
+    if (t.type === 'BOOLEAN')
+      return leaf('booleanLiteral', this.stream.consume());
+    if (t.type === 'IDENTIFIER')
+      return leaf('identifier', this.stream.consume());
 
     if (t.value === 'sizeof') {
       this.stream.consume();
       this.stream.expectValue('(');
-      const inner = this.stream.checkType('TYPE') ? this.typeSpecifier() : this.expression();
+      const inner = this.stream.checkType('TYPE')
+        ? this.typeSpecifier()
+        : this.expression();
       this.stream.expectValue(')');
       return node('sizeofExpr', [inner]);
     }
@@ -545,7 +644,9 @@ export class CParser {
 
     throw new ParseError(
       `Token inesperado: '${t.value}' (${t.type})`,
-      t.line, t.col, t.value,
+      t.line,
+      t.col,
+      t.value,
     );
   }
 }
