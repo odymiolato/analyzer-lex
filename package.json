@@ -30,6 +30,7 @@
     "class-validator": "^0.15.1",
     "glob": "13.0.6",
     "moo": "^0.5.3",
+    "postject": "1.0.0-alpha.6",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2"
   },
