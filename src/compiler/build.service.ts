@@ -218,7 +218,7 @@ export class BuildService {
       translated.code +
       '\n' +
       '(async function __entry() {\n' +
-      '  const __code = main();\n' +
+      '  const __code = await main();\n' +
       "  if (typeof __code === 'number') process.exitCode = __code;\n" +
       '  if (process.stdout.isTTY && process.stdin.isTTY) {\n' +
       "    process.stdout.write('\\nPresiona ENTER para salir...');\n" +

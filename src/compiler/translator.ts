@@ -12,11 +12,20 @@ export class CTranslator {
   private warnings: string[] = [];
   private indent = 0;
   private target: TargetLanguage = 'javascript';
+  private functionMap = new Map<string, CSTNode>();
+  private asyncFunctions = new Set<string>();
 
   translate(cst: CSTNode, target: TargetLanguage): TranslateResult {
     this.warnings = [];
     this.indent = 0;
     this.target = target;
+    this.functionMap.clear();
+    this.asyncFunctions.clear();
+
+    if (target === 'javascript') {
+      this.collectFunctions(cst);
+      this.asyncFunctions = this.computeAsyncFunctions();
+    }
 
     const header = target === 'javascript' ? this.jsHeader() : this.cppHeader();
     const body = this.emitNode(cst);
@@ -29,7 +38,27 @@ export class CTranslator {
   }
 
   private jsHeader(): string {
-    return `// Traducido automáticamente de C a JavaScript\n\n`;
+    return `// Traducido automáticamente de C a JavaScript\n\n` +
+      `const readline = require('node:readline/promises');\n` +
+      `const __rl = readline.createInterface({ input: process.stdin, output: process.stdout });\n` +
+      `process.on('exit', () => __rl.close());\n\n` +
+      `async function __scanfAssign(specifiers, setters) {\n` +
+      `  for (let index = 0; index < setters.length; index++) {\n` +
+      `    const raw = await __rl.question('');\n` +
+      `    const spec = specifiers[index] ?? '%s';\n` +
+      `    let value = raw;\n` +
+      `    if (spec === '%d' || spec === '%i' || spec === '%u' || spec === '%x' || spec === '%X') {\n` +
+      `      const parsed = Number.parseInt(raw, spec === '%x' || spec === '%X' ? 16 : 10);\n` +
+      `      value = Number.isNaN(parsed) ? 0 : parsed;\n` +
+      `    } else if (spec === '%f' || spec === '%F' || spec === '%e' || spec === '%E' || spec === '%g' || spec === '%G') {\n` +
+      `      const parsed = Number(raw);\n` +
+      `      value = Number.isNaN(parsed) ? 0 : parsed;\n` +
+      `    } else if (spec === '%c') {\n` +
+      `      value = raw.length > 0 ? raw[0] : '';\n` +
+      `    }\n` +
+      `    setters[index](value);\n` +
+      `  }\n` +
+      `}\n\n`;
   }
 
   private cppHeader(): string {
@@ -76,6 +105,66 @@ export class CTranslator {
     }
   }
 
+  private collectFunctions(node: CSTNode): void {
+    if (node.name === 'functionDefinition') {
+      const name = node.children?.[1]?.image;
+      if (name) {
+        this.functionMap.set(name, node);
+      }
+    }
+
+    for (const child of node.children ?? []) {
+      this.collectFunctions(child);
+    }
+  }
+
+  private computeAsyncFunctions(): Set<string> {
+    const asyncFunctions = new Set<string>();
+
+    for (const [name, fnNode] of this.functionMap.entries()) {
+      if (this.nodeContainsCall(fnNode, 'scanf')) {
+        asyncFunctions.add(name);
+      }
+    }
+
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const [name, fnNode] of this.functionMap.entries()) {
+        if (asyncFunctions.has(name)) continue;
+        if (this.nodeCallsAsyncFunction(fnNode, asyncFunctions)) {
+          asyncFunctions.add(name);
+          changed = true;
+        }
+      }
+    }
+
+    return asyncFunctions;
+  }
+
+  private nodeContainsCall(node: CSTNode, calleeName: string): boolean {
+    if (node.name === 'callExpr') {
+      const callee = node.children?.[0];
+      if ((callee?.image ?? '') === calleeName) {
+        return true;
+      }
+    }
+
+    return (node.children ?? []).some((child) => this.nodeContainsCall(child, calleeName));
+  }
+
+  private nodeCallsAsyncFunction(node: CSTNode, asyncFunctions: Set<string>): boolean {
+    if (node.name === 'callExpr') {
+      const callee = node.children?.[0];
+      const name = callee?.image ?? '';
+      if (asyncFunctions.has(name)) {
+        return true;
+      }
+    }
+
+    return (node.children ?? []).some((child) => this.nodeCallsAsyncFunction(child, asyncFunctions));
+  }
+
   private emitType(typeNode: CSTNode): string {
     const parts = (typeNode.children ?? [])
       .map((c) => c.image ?? '')
@@ -89,10 +178,11 @@ export class CTranslator {
     const name = children[1]?.image ?? 'func';
     const params = children[2];
     const body = children[3];
+    const isAsync = this.target === 'javascript' && this.asyncFunctions.has(name);
 
     if (this.target === 'javascript') {
       const paramStr = this.emitJsParams(params);
-      const lines = [`function ${name}(${paramStr}) {`];
+      const lines = [`${isAsync ? 'async ' : ''}function ${name}(${paramStr}) {`];
       this.indent++;
       lines.push(this.emitNode(body).trimEnd());
       this.indent--;
@@ -385,13 +475,93 @@ export class CTranslator {
       return this.translatePrintf(args);
     }
     if (fnName === 'scanf') {
-      this.warnings.push('scanf no tiene equivalente directo — generado como comentario');
       return this.target === 'javascript'
-        ? `/* scanf(${this.emitExpr(args)}) */`
+        ? this.translateScanf(args)
         : `/* cin >> ... */`;
     }
 
+    if (this.target === 'javascript' && this.asyncFunctions.has(fnName)) {
+      return `await ${fnName}(${args ? this.emitExpr(args) : ''})`;
+    }
+
     return `${fnName}(${args ? this.emitExpr(args) : ''})`;
+  }
+
+  private translateScanf(argsNode?: CSTNode): string {
+    const args = argsNode?.children ?? [];
+    if (args.length === 0) {
+      return 'await __scanfAssign([], [])';
+    }
+
+    const formatArg = args[0];
+    const specifiers = this.extractScanSpecifiers(formatArg?.image ?? '');
+    const setters = args.slice(1).map((arg, index) => {
+      const target = this.unwrapAddressOf(arg);
+      const targetExpr = this.emitLValue(target);
+      const specifier = specifiers[index] ?? '%s';
+      const castExpr = this.scanCastExpr('value', specifier);
+      return `(value) => { ${targetExpr} = ${castExpr}; }`;
+    });
+
+    return `await __scanfAssign(${JSON.stringify(specifiers.slice(0, setters.length))}, [${setters.join(', ')}])`;
+  }
+
+  private unwrapAddressOf(node: CSTNode): CSTNode {
+    if (node.name === 'unaryExpr' && node.children?.[0]?.image === '&' && node.children?.[1]) {
+      return node.children[1];
+    }
+    return node;
+  }
+
+  private emitLValue(node: CSTNode): string {
+    switch (node.name) {
+      case 'identifier':
+        return node.image ?? '';
+      case 'arrayAccess':
+        return `${this.emitExpr(node.children![0])}[${this.emitExpr(node.children![1])}]`;
+      case 'memberAccess':
+        return `${this.emitExpr(node.children![0])}${node.children![1].image ?? '.'}${node.children![2].image ?? ''}`;
+      case 'groupedExpr':
+        return this.emitLValue(node.children?.[0] ?? node);
+      default:
+        return this.emitExpr(node);
+    }
+  }
+
+  private extractScanSpecifiers(formatRaw: string): string[] {
+    const format = this.decodeStringLiteral(formatRaw);
+    return format.match(/%[diufFeEgGxXsc]/g) ?? [];
+  }
+
+  private decodeStringLiteral(raw: string): string {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return raw.replace(/^"|"$/g, '');
+    }
+  }
+
+  private scanCastExpr(valueExpr: string, specifier: string): string {
+    switch (specifier) {
+      case '%d':
+      case '%i':
+      case '%u':
+        return `Number.isNaN(Number.parseInt(${valueExpr}, 10)) ? 0 : Number.parseInt(${valueExpr}, 10)`;
+      case '%x':
+      case '%X':
+        return `Number.isNaN(Number.parseInt(${valueExpr}, 16)) ? 0 : Number.parseInt(${valueExpr}, 16)`;
+      case '%f':
+      case '%F':
+      case '%e':
+      case '%E':
+      case '%g':
+      case '%G':
+        return `Number.isNaN(Number(${valueExpr})) ? 0 : Number(${valueExpr})`;
+      case '%c':
+        return `${valueExpr}.length > 0 ? ${valueExpr}[0] : ''`;
+      default:
+        return valueExpr;
+    }
   }
 
   private translatePrintf(argsNode: CSTNode): string {
